@@ -163,8 +163,9 @@
     </div>
 
     <div class="card status-area">
-        <p style="color: var(--text-muted);">Chi-Square Statistic (α = 0.05)</p>
+        <p style="color: var(--text-muted); font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;">Statistical Analysis</p>
         <div id="status-text" class="status-value" style="color: var(--text-muted);">Awaiting more data...</div>
+        <div id="p-value-text" style="color: var(--text-muted); font-size: 13px; margin-top: 2px;"></div>
     </div>
 
     <div class="card" style="padding: 12px;">
@@ -327,13 +328,32 @@
         chart.update();
     }
 
+    // Statistical Helper: Calculate p-value for Chi-Square with 10 Degrees of Freedom
+    // Since df=10 is even, we can use the exact formula based on the Poisson distribution
+    function getPValue(chiSquare) {
+        const k = 10 / 2; // df / 2
+        const x = chiSquare / 2;
+        
+        // Exact formula for even degrees of freedom: p = e^(-x) * sum_{j=0}^{k-1} (x^j / j!)
+        let sum = 0;
+        let term = 1; // x^0 / 0!
+        for (let j = 0; j < k; j++) {
+            sum += term;
+            term *= x / (j + 1);
+        }
+        
+        return Math.exp(-x) * sum;
+    }
+
     // Statistical Engine
     function calculateChiSquare() {
         const statusEl = document.getElementById('status-text');
+        const pValueEl = document.getElementById('p-value-text');
         
         if (totalRolls < 15) {
             statusEl.innerText = `Need ${15 - totalRolls} more rolls to evaluate...`;
             statusEl.style.color = 'var(--text-muted)';
+            pValueEl.innerText = "";
             return;
         }
 
@@ -346,15 +366,18 @@
             }
         }
 
+        const pValue = getPValue(chiSquare);
         const criticalValue = 18.31; 
 
         if (chiSquare > criticalValue) {
-            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Suspicious! (p < 0.05)`;
+            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Suspicious!`;
             statusEl.style.color = 'var(--danger)';
         } else {
             statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Normal (Fair Dice)`;
             statusEl.style.color = 'var(--success)';
         }
+
+        pValueEl.innerText = `p-value: ${pValue.toFixed(4)} (${(pValue * 100).toFixed(1)}% likelihood)`;
     }
 
     // Initialize
