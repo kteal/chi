@@ -166,6 +166,67 @@
             background-color: var(--border);
         }
 
+        /* Player Luck Tracker Styling */
+        .player-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .player-row {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid var(--border);
+        }
+        .player-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        .player-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .player-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .player-color {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+        }
+        .player-name {
+            font-weight: 600;
+            font-size: 16px;
+        }
+        .luck-badge {
+            font-size: 14px;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 20px;
+        }
+        .number-toggles {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+        .num-pill {
+            padding: 4px 10px;
+            background-color: var(--item-bg);
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+        .num-pill.active {
+            background-color: var(--accent);
+            color: white;
+        }
+
         /* Archive Styling */
         .archive-list {
             display: flex;
@@ -244,6 +305,15 @@
         <div id="p-value-text" style="color: var(--text-muted); font-size: 13px; margin-top: 2px;"></div>
     </div>
 
+    <!-- Luck Tracker Card -->
+    <div class="card">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Luck Tracker (Efficiency)</p>
+        <div id="player-list" class="player-list">
+            <!-- Players will appear here -->
+        </div>
+        <button onclick="addPlayer()" style="width: 100%; font-size: 14px; padding: 8px 0; margin-top: 12px; background: none; box-shadow: none; border: 1px dashed var(--border); color: var(--text-muted);">+ Add Player</button>
+    </div>
+
     <div class="card" style="padding: 12px;">
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Recent Rolls (Tap to Edit)</p>
         <div id="history-log" class="history-log">
@@ -284,10 +354,14 @@
         8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36
     };
 
+    const playerColors = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#5856D6'];
+
+    // Application State
     let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
     let totalRolls = 0;
     let rollHistory = [];
     let gameArchive = [];
+    let players = []; // { name, color, numbers: [6, 8] }
 
     function haptic() {
         if (navigator.vibrate) navigator.vibrate(10);
@@ -332,12 +406,10 @@
             scales: {
                 y: { 
                     beginAtZero: true, 
-                    stacked: false,
                     ticks: { precision: 0, color: getThemeColors().text },
                     grid: { color: getThemeColors().grid }
                 },
                 x: { 
-                    stacked: true,
                     grid: { display: false },
                     ticks: { color: getThemeColors().text }
                 }
@@ -360,11 +432,12 @@
     });
 
     function saveState() {
-        localStorage.setItem('chi_game_state_v2', JSON.stringify({
+        localStorage.setItem('chi_game_state_v3', JSON.stringify({
             rollCounts,
             totalRolls,
             rollHistory,
-            gameArchive
+            gameArchive,
+            players
         }));
     }
 
@@ -374,54 +447,77 @@
         
         if (sharedData) {
             try {
-                const history = JSON.parse(atob(sharedData));
-                if (Array.isArray(history) && confirm("Load shared game data? This will clear your current game.")) {
-                    rollHistory = history;
+                const data = JSON.parse(atob(sharedData));
+                if (confirm("Load shared game data?")) {
+                    if (Array.isArray(data)) { // Legacy share (v2)
+                        rollHistory = data;
+                        players = [];
+                    } else { // v3 share
+                        rollHistory = data.history || [];
+                        players = data.players || [];
+                    }
                     rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
                     rollHistory.forEach(num => rollCounts[num]++);
                     totalRolls = rollHistory.length;
-                    
-                    // Clear URL params without refreshing
                     window.history.replaceState({}, document.title, window.location.pathname);
                     refreshUI();
                     return;
                 }
-            } catch (e) {
-                console.error("Failed to load shared game", e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        const saved = localStorage.getItem('chi_game_state_v2');
+        const saved = localStorage.getItem('chi_game_state_v3');
         if (saved) {
             const state = JSON.parse(saved);
             rollCounts = state.rollCounts;
             totalRolls = state.totalRolls;
             rollHistory = state.rollHistory || [];
             gameArchive = state.gameArchive || [];
+            players = state.players || [];
+            refreshUI();
+        }
+    }
+
+    function addPlayer() {
+        haptic();
+        const name = prompt("Player Name:");
+        if (!name) return;
+        players.push({
+            name: name,
+            color: playerColors[players.length % playerColors.length],
+            numbers: []
+        });
+        saveState();
+        refreshUI();
+    }
+
+    function togglePlayerNumber(playerIndex, num) {
+        haptic();
+        const p = players[playerIndex];
+        const idx = p.numbers.indexOf(num);
+        if (idx > -1) p.numbers.splice(idx, 1);
+        else p.numbers.push(num);
+        saveState();
+        refreshUI();
+    }
+
+    function deletePlayer(index) {
+        if (confirm("Delete player?")) {
+            players.splice(index, 1);
+            saveState();
             refreshUI();
         }
     }
 
     function shareGame() {
         haptic();
-        if (rollHistory.length === 0) {
-            alert("Roll the dice first to share a game!");
-            return;
-        }
-        
-        const data = btoa(JSON.stringify(rollHistory));
+        if (rollHistory.length === 0) return;
+        const data = btoa(JSON.stringify({ history: rollHistory, players: players }));
         const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
-        
         if (navigator.share) {
-            navigator.share({
-                title: 'Chi Dice Stats',
-                text: `Catan Dice Stats (Total Rolls: ${totalRolls})`,
-                url: url
-            }).catch(console.error);
+            navigator.share({ title: 'Chi Stats', url: url }).catch(console.error);
         } else {
-            navigator.clipboard.writeText(url).then(() => {
-                alert("Game link copied to clipboard!");
-            });
+            navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
         }
     }
 
@@ -446,13 +542,10 @@
 
     function editRoll(index) {
         const oldValue = rollHistory[index];
-        const input = prompt(`Change roll from ${oldValue} to:`, oldValue);
+        const input = prompt(`Change roll:`, oldValue);
         if (input === null) return;
         const newValue = parseInt(input);
-        if (isNaN(newValue) || newValue < 2 || newValue > 12) {
-            alert("Please enter a valid roll between 2 and 12.");
-            return;
-        }
+        if (isNaN(newValue) || newValue < 2 || newValue > 12) return;
         rollHistory[index] = newValue;
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         rollHistory.forEach(num => rollCounts[num]++);
@@ -462,29 +555,23 @@
 
     function deleteArchiveItem(index) {
         haptic();
-        if (!confirm("Delete this game from archive?")) return;
-        gameArchive.splice(index, 1);
-        saveState();
-        refreshUI();
+        if (confirm("Delete archived game?")) {
+            gameArchive.splice(index, 1);
+            saveState();
+            refreshUI();
+        }
     }
 
     function resetGame() {
         haptic();
-        if (totalRolls > 0) {
-            if (confirm("Save current game to archive before resetting?")) {
-                const chiSquare = calculateChiSquareValue();
-                const pValue = getPValue(chiSquare);
-                gameArchive.unshift({
-                    timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
-                    rolls: totalRolls,
-                    pValue: pValue.toFixed(3)
-                });
-                if (gameArchive.length > 5) gameArchive.pop();
-            } else if (!confirm("Discard game and reset?")) {
-                return;
-            }
+        if (totalRolls > 0 && confirm("Save to archive before resetting?")) {
+            gameArchive.unshift({
+                timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
+                rolls: totalRolls,
+                pValue: getPValue(calculateChiSquareValue()).toFixed(3)
+            });
+            if (gameArchive.length > 5) gameArchive.pop();
         }
-        
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         totalRolls = 0;
         rollHistory = [];
@@ -498,6 +585,49 @@
         calculateChiSquare();
         updateHistoryLog();
         updateArchiveUI();
+        updateLuckTracker();
+    }
+
+    function updateLuckTracker() {
+        const list = document.getElementById('player-list');
+        list.innerHTML = players.map((p, pIdx) => {
+            let actualHits = 0;
+            let expectedProb = 0;
+            p.numbers.forEach(n => {
+                actualHits += rollCounts[n];
+                expectedProb += probabilities[n];
+            });
+            
+            const expectedHits = totalRolls * expectedProb;
+            const luckRatio = expectedHits > 0 ? (actualHits / expectedHits) : 1;
+            const luckPct = Math.round(luckRatio * 100);
+            
+            let badgeColor = 'var(--text-muted)';
+            if (totalRolls >= 10) {
+                if (luckPct > 120) badgeColor = 'var(--success)';
+                else if (luckPct < 80) badgeColor = 'var(--danger)';
+            }
+
+            return `
+                <div class="player-row">
+                    <div class="player-header" onclick="deletePlayer(${pIdx})">
+                        <div class="player-info">
+                            <div class="player-color" style="background-color: ${p.color}"></div>
+                            <div class="player-name">${p.name}</div>
+                        </div>
+                        <div class="luck-badge" style="background-color: ${badgeColor}; color: white;">
+                            ${luckPct}%
+                        </div>
+                    </div>
+                    <div class="number-toggles">
+                        ${[2,3,4,5,6,7,8,9,10,11,12].map(n => `
+                            <div class="num-pill ${p.numbers.includes(n) ? 'active' : ''}" 
+                                 onclick="togglePlayerNumber(${pIdx}, ${n})">${n}</div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }).join('');
     }
 
     function updateHistoryLog() {
@@ -508,16 +638,11 @@
     }
 
     function updateArchiveUI() {
-        const archiveCard = document.getElementById('archive-card');
-        const archiveList = document.getElementById('archive-list');
-        
-        if (gameArchive.length === 0) {
-            archiveCard.style.display = 'none';
-            return;
-        }
-        
-        archiveCard.style.display = 'block';
-        archiveList.innerHTML = gameArchive.map((game, index) => `
+        const card = document.getElementById('archive-card');
+        const list = document.getElementById('archive-list');
+        if (gameArchive.length === 0) { card.style.display = 'none'; return; }
+        card.style.display = 'block';
+        list.innerHTML = gameArchive.map((game, index) => `
             <div class="archive-item-wrapper">
                 <div class="archive-delete-btn" onclick="deleteArchiveItem(${index})">Delete</div>
                 <div class="archive-item" id="archive-item-${index}">
@@ -525,51 +650,23 @@
                         <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
                         <div>${game.rolls} rolls</div>
                     </div>
-                    <div class="archive-stat" style="color: ${game.pValue < 0.05 ? 'var(--danger)' : 'var(--success)'}">
-                        p = ${game.pValue}
-                    </div>
+                    <div class="archive-stat" style="color: ${game.pValue < 0.05 ? 'var(--danger)' : 'var(--success)'}">p = ${game.pValue}</div>
                 </div>
             </div>
         `).join('');
 
         gameArchive.forEach((_, index) => {
             const el = document.getElementById(`archive-item-${index}`);
-            let startX = 0;
-            let currentX = 0;
-            let isSwiping = false;
-
-            const handleStart = (clientX) => {
-                startX = clientX;
-                el.style.transition = 'none';
-                isSwiping = true;
-            };
-
-            const handleMove = (clientX) => {
-                if (!isSwiping) return;
-                currentX = clientX - startX;
-                if (currentX < 0) {
-                    const translateX = Math.max(currentX, -80);
-                    el.style.transform = `translateX(${translateX}px)`;
-                }
-            };
-
-            const handleEnd = () => {
-                isSwiping = false;
-                el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)';
-                if (currentX < -40) {
-                    el.style.transform = 'translateX(-80px)';
-                } else {
-                    el.style.transform = 'translateX(0)';
-                }
-            };
-
-            el.addEventListener('touchstart', (e) => handleStart(e.touches[0].clientX), { passive: true });
-            el.addEventListener('touchmove', (e) => handleMove(e.touches[0].clientX), { passive: true });
-            el.addEventListener('touchend', handleEnd);
-
-            el.addEventListener('mousedown', (e) => handleStart(e.clientX));
-            window.addEventListener('mousemove', (e) => handleMove(e.clientX));
-            window.addEventListener('mouseup', handleEnd);
+            let startX = 0, currentX = 0, isSwiping = false;
+            const start = (x) => { startX = x; el.style.transition = 'none'; isSwiping = true; };
+            const move = (x) => { if (!isSwiping) return; currentX = x - startX; if (currentX < 0) el.style.transform = `translateX(${Math.max(currentX, -80)}px)`; };
+            const end = () => { isSwiping = false; el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)'; el.style.transform = currentX < -40 ? 'translateX(-80px)' : 'translateX(0)'; };
+            el.addEventListener('touchstart', (e) => start(e.touches[0].clientX), { passive: true });
+            el.addEventListener('touchmove', (e) => move(e.touches[0].clientX), { passive: true });
+            el.addEventListener('touchend', end);
+            el.addEventListener('mousedown', (e) => start(e.clientX));
+            window.addEventListener('mousemove', (e) => move(e.clientX));
+            window.addEventListener('mouseup', end);
         });
     }
 
@@ -580,25 +677,17 @@
     }
 
     function getPValue(chiSquare) {
-        const k = 10 / 2;
-        const x = chiSquare / 2;
-        let sum = 0;
-        let term = 1;
-        for (let j = 0; j < k; j++) {
-            sum += term;
-            term *= x / (j + 1);
-        }
+        const k = 5, x = chiSquare / 2;
+        let sum = 0, term = 1;
+        for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); }
         return Math.exp(-x) * sum;
     }
 
     function calculateChiSquareValue() {
         let chiSquare = 0;
         for (let i = 2; i <= 12; i++) {
-            let observed = rollCounts[i];
-            let expected = totalRolls * probabilities[i];
-            if (expected > 0) {
-                chiSquare += Math.pow((observed - expected), 2) / expected;
-            }
+            let observed = rollCounts[i], expected = totalRolls * probabilities[i];
+            if (expected > 0) chiSquare += Math.pow((observed - expected), 2) / expected;
         }
         return chiSquare;
     }
@@ -606,26 +695,15 @@
     function calculateChiSquare() {
         const statusEl = document.getElementById('status-text');
         const pValueEl = document.getElementById('p-value-text');
-        
         if (totalRolls < 15) {
-            statusEl.innerText = `Need ${15 - totalRolls} more rolls to evaluate...`;
+            statusEl.innerText = `Need ${15 - totalRolls} more rolls...`;
             statusEl.style.color = 'var(--text-muted)';
             pValueEl.innerText = "";
             return;
         }
-
-        const chiSquare = calculateChiSquareValue();
-        const pValue = getPValue(chiSquare);
-        const criticalValue = 18.31; 
-
-        if (chiSquare > criticalValue) {
-            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Suspicious!`;
-            statusEl.style.color = 'var(--danger)';
-        } else {
-            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Normal (Fair Dice)`;
-            statusEl.style.color = 'var(--success)';
-        }
-
+        const pValue = getPValue(calculateChiSquareValue());
+        statusEl.innerText = pValue < 0.05 ? "χ² — Suspicious!" : "χ² — Normal (Fair Dice)";
+        statusEl.style.color = pValue < 0.05 ? 'var(--danger)' : 'var(--success)';
         pValueEl.innerText = `p-value: ${pValue.toFixed(4)} (${(pValue * 100).toFixed(1)}% likelihood)`;
     }
 
