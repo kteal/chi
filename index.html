@@ -171,6 +171,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
+            position: relative; /* For transition-group like behavior */
         }
         .player-row {
             display: flex;
@@ -178,7 +179,7 @@
             gap: 8px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
-            transition: all 0.4s ease; /* For smooth sorting feel */
+            background-color: var(--card-bg);
         }
         .player-row:last-child {
             border-bottom: none;
@@ -223,7 +224,10 @@
             font-weight: 600;
             color: var(--text-muted);
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: transform 0.1s ease, background-color 0.2s ease, color 0.2s ease;
+        }
+        .num-pill:active {
+            transform: scale(0.9);
         }
         .num-pill.active {
             background-color: var(--accent);
@@ -255,8 +259,9 @@
         .color-options { display: flex; justify-content: center; gap: 15px; }
         .color-dot {
             width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
-            border: 3px solid transparent; transition: border-color 0.2s;
+            border: 3px solid transparent; transition: border-color 0.2s, transform 0.1s;
         }
+        .color-dot:active { transform: scale(0.9); }
         .color-dot.selected { border-color: var(--text-main); }
         .modal-input {
             background: var(--bg-color);
@@ -469,7 +474,7 @@
     function confirmAddPlayer() {
         const name = document.getElementById('player-name-input').value;
         if (!name) return;
-        players.push({ id: Date.now(), name, color: selectedModalColor, assignments: [] });
+        players.push({ id: 'p' + Date.now(), name, color: selectedModalColor, assignments: [] });
         saveState();
         refreshUI();
         closeModal();
@@ -506,7 +511,7 @@
             gameArchive = state.gameArchive || [];
             players = state.players || [];
             players.forEach(p => {
-                if (!p.id) p.id = Math.random();
+                if (!p.id) p.id = 'p' + Math.random();
                 if (p.numbers) {
                     p.assignments = p.numbers.map(n => ({ num: n, startRoll: 0 }));
                     delete p.numbers;
@@ -615,10 +620,16 @@
     function updateLuckTracker() {
         const list = document.getElementById('player-list');
         
-        // Calculate current luck for all players
+        // FLIP animation: First
+        const rows = list.querySelectorAll('.player-row');
+        const firstPositions = {};
+        rows.forEach(row => {
+            const id = row.getAttribute('data-id');
+            firstPositions[id] = row.getBoundingClientRect().top;
+        });
+
         const playerLuckData = players.map(p => {
-            let actualHits = 0;
-            let expectedHits = 0;
+            let actualHits = 0, expectedHits = 0;
             p.assignments.forEach(a => {
                 actualHits += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
                 expectedHits += (totalRolls - a.startRoll) * probabilities[a.num];
@@ -628,7 +639,6 @@
             return { ...p, luckPct, expectedHits };
         });
 
-        // Sort by luckPct descending
         playerLuckData.sort((a, b) => b.luckPct - a.luckPct);
 
         list.innerHTML = playerLuckData.map((p) => {
@@ -640,9 +650,9 @@
             const assignedNums = p.assignments.map(a => a.num);
 
             return `
-                <div class="player-row">
+                <div class="player-row" data-id="${p.id}">
                     <div class="player-header">
-                        <div class="player-info" onclick="deletePlayer(${p.id})">
+                        <div class="player-info" onclick="deletePlayer('${p.id}')">
                             <div class="player-color" style="background-color: ${p.color}"></div>
                             <div class="player-name">${p.name}</div>
                         </div>
@@ -653,12 +663,35 @@
                     <div class="number-toggles">
                         ${[2,3,4,5,6,7,8,9,10,11,12].map(n => `
                             <div class="num-pill ${assignedNums.includes(n) ? 'active' : ''}" 
-                                 onclick="togglePlayerNumber(${p.id}, ${n})">${n}</div>
+                                 onclick="togglePlayerNumber('${p.id}', ${n})">${n}</div>
                         `).join('')}
                     </div>
                 </div>
             `;
         }).join('');
+
+        // FLIP animation: Last, Invert, Play
+        requestAnimationFrame(() => {
+            const newRows = list.querySelectorAll('.player-row');
+            newRows.forEach(row => {
+                const id = row.getAttribute('data-id');
+                const firstTop = firstPositions[id];
+                if (firstTop === undefined) return; // New element
+
+                const lastTop = row.getBoundingClientRect().top;
+                const invert = firstTop - lastTop;
+
+                if (invert !== 0) {
+                    row.style.transition = 'none';
+                    row.style.transform = `translateY(${invert}px)`;
+                    
+                    requestAnimationFrame(() => {
+                        row.style.transition = 'transform 0.4s cubic-bezier(0.2, 0, 0, 1)';
+                        row.style.transform = 'translateY(0)';
+                    });
+                }
+            });
+        });
     }
 
     function updateHistoryLog() {
