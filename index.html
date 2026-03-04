@@ -171,7 +171,7 @@
             display: flex;
             flex-direction: column;
             gap: 12px;
-            position: relative; /* For transition-group like behavior */
+            position: relative;
         }
         .player-row {
             display: flex;
@@ -226,16 +226,14 @@
             cursor: pointer;
             transition: transform 0.1s ease, background-color 0.2s ease, color 0.2s ease;
         }
-        .num-pill:active {
-            transform: scale(0.9);
-        }
+        .num-pill:active { transform: scale(0.9); }
         .num-pill.active {
             background-color: var(--accent);
             color: white;
         }
 
-        /* Player Creator Modal */
-        #player-modal {
+        /* Modal Styling */
+        .modal-overlay {
             display: none;
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -248,12 +246,13 @@
         .modal-content {
             background: var(--card-bg);
             width: 100%;
-            max-width: 300px;
+            max-width: 320px;
             border-radius: 20px;
             padding: 20px;
             display: flex;
             flex-direction: column;
             gap: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
         }
         .modal-content h3 { font-size: 17px; text-align: center; }
         .color-options { display: flex; justify-content: center; gap: 15px; }
@@ -284,14 +283,10 @@
         .archive-item-wrapper:last-child {
             border-bottom: none;
         }
-        .archive-delete-btn {
+        .archive-action-btn {
             position: absolute;
-            right: 0;
-            top: 0;
-            bottom: 0;
+            top: 0; bottom: 0;
             width: 80px;
-            background-color: var(--danger);
-            color: white;
             display: flex;
             justify-content: center;
             align-items: center;
@@ -299,7 +294,11 @@
             font-size: 14px;
             z-index: 1;
             cursor: pointer;
+            color: white;
         }
+        .btn-delete { background-color: var(--danger); right: 0; }
+        .btn-info { background-color: var(--accent); left: 0; }
+        
         .archive-item {
             display: flex;
             justify-content: space-between;
@@ -311,22 +310,15 @@
             transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
             cursor: grab;
         }
-        .archive-item:active {
-            cursor: grabbing;
-        }
-        .archive-meta {
-            font-size: 13px;
-            color: var(--text-muted);
-        }
-        .archive-stat {
-            font-weight: 600;
-            font-size: 15px;
-        }
+        .archive-item:active { cursor: grabbing; }
+        .archive-meta { font-size: 13px; color: var(--text-muted); }
+        .archive-stat { font-weight: 600; font-size: 15px; }
     </style>
 </head>
 <body>
 
-<div id="player-modal">
+<!-- Player Creator Modal -->
+<div id="player-modal" class="modal-overlay">
     <div class="modal-content">
         <h3>Add Player</h3>
         <input type="text" id="player-name-input" class="modal-input" placeholder="Player Name" maxlength="12">
@@ -337,9 +329,21 @@
             <div class="color-dot" style="background: #E5E5EA; border: 1px solid var(--border);" onclick="selectModalColor(this, '#E5E5EA')"></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
-            <button onclick="closeModal()" style="font-size: 15px; padding: 10px 0; color: var(--text-muted); background: none; box-shadow: none;">Cancel</button>
+            <button onclick="closePlayerModal()" style="font-size: 15px; padding: 10px 0; color: var(--text-muted); background: none; box-shadow: none;">Cancel</button>
             <button onclick="confirmAddPlayer()" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Add</button>
         </div>
+    </div>
+</div>
+
+<!-- Game Details Modal -->
+<div id="details-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 360px;">
+        <h3 id="details-title">Game Details</h3>
+        <div class="chart-container" style="height: 150px;">
+            <canvas id="detailsChart"></canvas>
+        </div>
+        <div id="details-players" style="max-height: 200px; overflow-y: auto;"></div>
+        <button onclick="closeDetailsModal()" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Close</button>
     </div>
 </div>
 
@@ -401,28 +405,14 @@
 </div>
 
 <script>
-    const probabilities = {
-        2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36,
-        8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36
-    };
-
+    const probabilities = { 2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36, 8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36 };
     let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-    let totalRolls = 0;
-    let rollHistory = [];
-    let gameArchive = [];
-    let players = [];
-    let selectedModalColor = '#FF3B30';
+    let totalRolls = 0, rollHistory = [], gameArchive = [], players = [], selectedModalColor = '#FF3B30';
 
     function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
-
     function getThemeColors() {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return {
-            accent: isDark ? '#0A84FF' : '#007AFF',
-            text: '#8E8E93',
-            grid: isDark ? '#38383A' : '#E5E5EA',
-            ghost: isDark ? 'rgba(142, 142, 147, 0.2)' : 'rgba(142, 142, 147, 0.15)'
-        };
+        return { accent: isDark ? '#0A84FF' : '#007AFF', text: '#8E8E93', grid: isDark ? '#38383A' : '#E5E5EA', ghost: isDark ? 'rgba(142, 142, 147, 0.2)' : 'rgba(142, 142, 147, 0.15)' };
     }
 
     const ctx = document.getElementById('distributionChart').getContext('2d');
@@ -445,45 +435,37 @@
         }
     });
 
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const colors = getThemeColors();
-        chart.data.datasets[0].backgroundColor = colors.accent;
-        chart.data.datasets[1].backgroundColor = colors.ghost;
-        chart.options.scales.y.ticks.color = colors.text;
-        chart.options.scales.y.grid.color = colors.grid;
-        chart.options.scales.x.ticks.color = colors.text;
-        chart.update();
+    // Details Chart Initialization
+    const detailCtx = document.getElementById('detailsChart').getContext('2d');
+    const detailsChart = new Chart(detailCtx, {
+        type: 'bar',
+        data: {
+            labels: ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+            datasets: [{ label: 'Rolls', data: [], backgroundColor: getThemeColors().accent, borderRadius: 2 }]
+        },
+        options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } }
     });
 
-    function openPlayerModal() {
-        document.getElementById('player-modal').style.display = 'flex';
-        document.getElementById('player-name-input').focus();
-    }
+    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+        const colors = getThemeColors();
+        [chart, detailsChart].forEach(c => {
+            c.data.datasets[0].backgroundColor = colors.accent;
+            if (c.data.datasets[1]) c.data.datasets[1].backgroundColor = colors.ghost;
+            c.update();
+        });
+    });
 
-    function closeModal() {
-        document.getElementById('player-modal').style.display = 'none';
-        document.getElementById('player-name-input').value = '';
-    }
-
-    function selectModalColor(el, color) {
-        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
-        el.classList.add('selected');
-        selectedModalColor = color;
-    }
-
+    function openPlayerModal() { document.getElementById('player-modal').style.display = 'flex'; document.getElementById('player-name-input').focus(); }
+    function closePlayerModal() { document.getElementById('player-modal').style.display = 'none'; document.getElementById('player-name-input').value = ''; }
+    function selectModalColor(el, color) { document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected')); el.classList.add('selected'); selectedModalColor = color; }
     function confirmAddPlayer() {
         const name = document.getElementById('player-name-input').value;
         if (!name) return;
         players.push({ id: 'p' + Date.now(), name, color: selectedModalColor, assignments: [] });
-        saveState();
-        refreshUI();
-        closeModal();
+        saveState(); refreshUI(); closePlayerModal();
     }
 
-    function saveState() {
-        localStorage.setItem('chi_game_state_v4', JSON.stringify({ rollCounts, totalRolls, rollHistory, gameArchive, players }));
-    }
-
+    function saveState() { localStorage.setItem('chi_game_state_v5', JSON.stringify({ rollCounts, totalRolls, rollHistory, gameArchive, players })); }
     function loadState() {
         const urlParams = new URLSearchParams(window.location.search);
         const sharedData = urlParams.get('game');
@@ -491,223 +473,127 @@
             try {
                 const data = JSON.parse(atob(sharedData));
                 if (confirm("Load shared game data?")) {
-                    rollHistory = data.history || [];
-                    players = data.players || [];
+                    rollHistory = data.history || []; players = data.players || [];
                     rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
                     rollHistory.forEach(num => rollCounts[num]++);
                     totalRolls = rollHistory.length;
                     window.history.replaceState({}, document.title, window.location.pathname);
-                    refreshUI();
-                    return;
+                    refreshUI(); return;
                 }
             } catch (e) { console.error(e); }
         }
-        const saved = localStorage.getItem('chi_game_state_v4') || localStorage.getItem('chi_game_state_v3');
+        const saved = localStorage.getItem('chi_game_state_v5') || localStorage.getItem('chi_game_state_v4');
         if (saved) {
             const state = JSON.parse(saved);
-            rollCounts = state.rollCounts;
-            totalRolls = state.totalRolls;
-            rollHistory = state.rollHistory || [];
-            gameArchive = state.gameArchive || [];
-            players = state.players || [];
-            players.forEach(p => {
-                if (!p.id) p.id = 'p' + Math.random();
-                if (p.numbers) {
-                    p.assignments = p.numbers.map(n => ({ num: n, startRoll: 0 }));
-                    delete p.numbers;
-                }
-            });
+            Object.assign(window, { rollCounts: state.rollCounts, totalRolls: state.totalRolls, rollHistory: state.rollHistory, gameArchive: state.gameArchive, players: state.players });
             refreshUI();
         }
     }
 
     function togglePlayerNumber(playerId, num) {
         haptic();
-        const p = players.find(player => player.id === playerId);
-        const existingIdx = p.assignments.findIndex(a => a.num === num);
-        if (existingIdx > -1) p.assignments.splice(existingIdx, 1);
-        else p.assignments.push({ num: num, startRoll: totalRolls });
-        saveState();
-        refreshUI();
+        const p = players.find(p => p.id === playerId);
+        const idx = p.assignments.findIndex(a => a.num === num);
+        if (idx > -1) p.assignments.splice(idx, 1); else p.assignments.push({ num, startRoll: totalRolls });
+        saveState(); refreshUI();
     }
 
-    function deletePlayer(playerId) {
-        if (confirm("Delete player?")) {
-            players = players.filter(p => p.id !== playerId);
-            saveState();
-            refreshUI();
-        }
-    }
-
-    function shareGame() {
-        haptic();
-        if (rollHistory.length === 0) return;
-        const data = btoa(JSON.stringify({ history: rollHistory, players: players }));
-        const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
-        if (navigator.share) { navigator.share({ title: 'Chi Stats', url: url }).catch(console.error); }
-        else { navigator.clipboard.writeText(url).then(() => alert("Link copied!")); }
-    }
-
-    function addRoll(number) {
-        haptic();
-        rollCounts[number]++;
-        totalRolls++;
-        rollHistory.push(number);
-        saveState();
-        refreshUI();
-    }
-
+    function deletePlayer(playerId) { if (confirm("Delete player?")) { players = players.filter(p => p.id !== playerId); saveState(); refreshUI(); } }
+    function addRoll(number) { haptic(); rollCounts[number]++; totalRolls++; rollHistory.push(number); saveState(); refreshUI(); }
     function undoRoll() {
-        haptic();
-        if (rollHistory.length === 0) return;
-        const lastRoll = rollHistory.pop();
-        rollCounts[lastRoll]--;
-        totalRolls--;
+        haptic(); if (rollHistory.length === 0) return;
+        const last = rollHistory.pop(); rollCounts[last]--; totalRolls--;
         players.forEach(p => p.assignments.forEach(a => { if (a.startRoll > totalRolls) a.startRoll = totalRolls; }));
-        saveState();
-        refreshUI();
-    }
-
-    function editRoll(index) {
-        const oldValue = rollHistory[index];
-        const input = prompt(`Change roll:`, oldValue);
-        if (input === null) return;
-        const newValue = parseInt(input);
-        if (isNaN(newValue) || newValue < 2 || newValue > 12) return;
-        rollHistory[index] = newValue;
-        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-        rollHistory.forEach(num => rollCounts[num]++);
-        saveState();
-        refreshUI();
-    }
-
-    function deleteArchiveItem(index) {
-        haptic();
-        if (confirm("Delete archived game?")) {
-            gameArchive.splice(index, 1);
-            saveState();
-            refreshUI();
-        }
+        saveState(); refreshUI();
     }
 
     function resetGame() {
         haptic();
-        if (totalRolls > 0 && confirm("Save to archive before resetting?")) {
+        if (totalRolls > 0 && confirm("Save to archive and clear players?")) {
+            const luckData = players.map(p => {
+                let actual = 0, expected = 0;
+                p.assignments.forEach(a => {
+                    actual += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
+                    expected += (totalRolls - a.startRoll) * probabilities[a.num];
+                });
+                return { name: p.name, color: p.color, luckPct: expected > 0.1 ? Math.round((actual / expected) * 100) : 100 };
+            }).sort((a,b) => b.luckPct - a.luckPct);
+
             gameArchive.unshift({
                 timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
                 rolls: totalRolls,
+                rollCounts: {...rollCounts},
+                luckData: luckData,
                 pValue: getPValue(calculateChiSquareValue()).toFixed(3)
             });
             if (gameArchive.length > 5) gameArchive.pop();
         }
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-        totalRolls = 0;
-        rollHistory = [];
-        players.forEach(p => p.assignments.forEach(a => a.startRoll = 0));
-        saveState();
-        refreshUI();
+        totalRolls = 0; rollHistory = []; players = [];
+        saveState(); refreshUI();
     }
 
     function refreshUI() {
         document.getElementById('total-rolls').innerText = totalRolls;
-        updateChart();
+        chart.data.datasets[0].data = Object.values(rollCounts);
+        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
+        chart.update();
         calculateChiSquare();
-        updateHistoryLog();
+        document.getElementById('history-log').innerHTML = rollHistory.map((num, idx) => `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`).reverse().join('');
         updateArchiveUI();
         updateLuckTracker();
     }
 
     function updateLuckTracker() {
         const list = document.getElementById('player-list');
-        
-        // FLIP animation: First
-        const rows = list.querySelectorAll('.player-row');
         const firstPositions = {};
-        rows.forEach(row => {
-            const id = row.getAttribute('data-id');
-            firstPositions[id] = row.getBoundingClientRect().top;
-        });
+        list.querySelectorAll('.player-row').forEach(row => firstPositions[row.getAttribute('data-id')] = row.getBoundingClientRect().top);
 
-        const playerLuckData = players.map(p => {
-            let actualHits = 0, expectedHits = 0;
+        const data = players.map(p => {
+            let actual = 0, expected = 0;
             p.assignments.forEach(a => {
-                actualHits += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
-                expectedHits += (totalRolls - a.startRoll) * probabilities[a.num];
+                actual += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
+                expected += (totalRolls - a.startRoll) * probabilities[a.num];
             });
-            let luckPct = 100;
-            if (expectedHits > 0.1) luckPct = Math.round((actualHits / expectedHits) * 100);
-            return { ...p, luckPct, expectedHits };
-        });
+            return { ...p, luckPct: expected > 0.1 ? Math.round((actual / expected) * 100) : 100, expectedHits: expected };
+        }).sort((a, b) => b.luckPct - a.luckPct);
 
-        playerLuckData.sort((a, b) => b.luckPct - a.luckPct);
-
-        list.innerHTML = playerLuckData.map((p) => {
-            let badgeColor = 'var(--text-muted)';
-            if (p.expectedHits > 1.5) {
-                if (p.luckPct > 115) badgeColor = 'var(--success)';
-                else if (p.luckPct < 85) badgeColor = 'var(--danger)';
-            }
-            const assignedNums = p.assignments.map(a => a.num);
-
-            return `
-                <div class="player-row" data-id="${p.id}">
-                    <div class="player-header">
-                        <div class="player-info" onclick="deletePlayer('${p.id}')">
-                            <div class="player-color" style="background-color: ${p.color}"></div>
-                            <div class="player-name">${p.name}</div>
-                        </div>
-                        <div class="luck-badge" style="background-color: ${badgeColor}; color: white;">
-                            ${p.luckPct}%
-                        </div>
+        list.innerHTML = data.map(p => `
+            <div class="player-row" data-id="${p.id}">
+                <div class="player-header">
+                    <div class="player-info" onclick="deletePlayer('${p.id}')">
+                        <div class="player-color" style="background-color: ${p.color}"></div>
+                        <div class="player-name">${p.name}</div>
                     </div>
-                    <div class="number-toggles">
-                        ${[2,3,4,5,6,7,8,9,10,11,12].map(n => `
-                            <div class="num-pill ${assignedNums.includes(n) ? 'active' : ''}" 
-                                 onclick="togglePlayerNumber('${p.id}', ${n})">${n}</div>
-                        `).join('')}
-                    </div>
+                    <div class="luck-badge" style="background-color: ${p.expectedHits > 1.5 ? (p.luckPct > 115 ? 'var(--success)' : (p.luckPct < 85 ? 'var(--danger)' : 'var(--text-muted)')) : 'var(--text-muted)'}; color: white;">${p.luckPct}%</div>
                 </div>
-            `;
-        }).join('');
+                <div class="number-toggles">${[2,3,4,5,6,7,8,9,10,11,12].map(n => `<div class="num-pill ${p.assignments.some(a=>a.num===n)?'active':''}" onclick="togglePlayerNumber('${p.id}', ${n})">${n}</div>`).join('')}</div>
+            </div>
+        `).join('');
 
-        // FLIP animation: Last, Invert, Play
         requestAnimationFrame(() => {
-            const newRows = list.querySelectorAll('.player-row');
-            newRows.forEach(row => {
-                const id = row.getAttribute('data-id');
-                const firstTop = firstPositions[id];
-                if (firstTop === undefined) return; // New element
-
-                const lastTop = row.getBoundingClientRect().top;
-                const invert = firstTop - lastTop;
-
-                if (invert !== 0) {
-                    row.style.transition = 'none';
-                    row.style.transform = `translateY(${invert}px)`;
-                    
-                    requestAnimationFrame(() => {
-                        row.style.transition = 'transform 0.4s cubic-bezier(0.2, 0, 0, 1)';
-                        row.style.transform = 'translateY(0)';
-                    });
+            list.querySelectorAll('.player-row').forEach(row => {
+                const first = firstPositions[row.getAttribute('data-id')];
+                if (first) {
+                    const diff = first - row.getBoundingClientRect().top;
+                    if (diff !== 0) {
+                        row.style.transition = 'none'; row.style.transform = `translateY(${diff}px)`;
+                        requestAnimationFrame(() => { row.style.transition = 'transform 0.4s cubic-bezier(0.2, 0, 0, 1)'; row.style.transform = 'translateY(0)'; });
+                    }
                 }
             });
         });
     }
 
-    function updateHistoryLog() {
-        const logEl = document.getElementById('history-log');
-        logEl.innerHTML = rollHistory.map((num, idx) => `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`).reverse().join('');
-    }
-
     function updateArchiveUI() {
-        const card = document.getElementById('archive-card');
-        const list = document.getElementById('archive-list');
+        const card = document.getElementById('archive-card'), list = document.getElementById('archive-list');
         if (gameArchive.length === 0) { card.style.display = 'none'; return; }
         card.style.display = 'block';
-        list.innerHTML = gameArchive.map((game, index) => `
+        list.innerHTML = gameArchive.map((game, i) => `
             <div class="archive-item-wrapper">
-                <div class="archive-delete-btn" onclick="deleteArchiveItem(${index})">Delete</div>
-                <div class="archive-item" id="archive-item-${index}">
+                <div class="archive-action-btn btn-info" onclick="showGameDetails(${i})">Info</div>
+                <div class="archive-action-btn btn-delete" onclick="deleteArchiveItem(${i})">Delete</div>
+                <div class="archive-item" id="archive-item-${i}">
                     <div class="archive-meta">
                         <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
                         <div>${game.rolls} rolls</div>
@@ -717,12 +603,17 @@
             </div>
         `).join('');
 
-        gameArchive.forEach((_, index) => {
-            const el = document.getElementById(`archive-item-${index}`);
+        gameArchive.forEach((_, i) => {
+            const el = document.getElementById(`archive-item-${i}`);
             let startX = 0, currentX = 0, isSwiping = false;
             const start = (x) => { startX = x; el.style.transition = 'none'; isSwiping = true; };
-            const move = (x) => { if (!isSwiping) return; currentX = x - startX; if (currentX < 0) el.style.transform = `translateX(${Math.max(currentX, -80)}px)`; };
-            const end = () => { isSwiping = false; el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)'; el.style.transform = currentX < -40 ? 'translateX(-80px)' : 'translateX(0)'; };
+            const move = (x) => { if (!isSwiping) return; currentX = x - startX; el.style.transform = `translateX(${Math.min(Math.max(currentX, -80), 80)}px)`; };
+            const end = () => {
+                isSwiping = false; el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)';
+                if (currentX < -40) el.style.transform = 'translateX(-80px)';
+                else if (currentX > 40) el.style.transform = 'translateX(80px)';
+                else el.style.transform = 'translateX(0)';
+            };
             el.addEventListener('touchstart', (e) => start(e.touches[0].clientX), { passive: true });
             el.addEventListener('touchmove', (e) => move(e.touches[0].clientX), { passive: true });
             el.addEventListener('touchend', end);
@@ -732,19 +623,30 @@
         });
     }
 
-    function updateChart() {
-        chart.data.datasets[0].data = Object.values(rollCounts);
-        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
-        chart.update();
+    function showGameDetails(index) {
+        haptic();
+        const game = gameArchive[index];
+        document.getElementById('details-title').innerText = `Game: ${game.timestamp}`;
+        detailsChart.data.datasets[0].data = Object.values(game.rollCounts);
+        detailsChart.update();
+        document.getElementById('details-players').innerHTML = `
+            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 12px 0 8px 0; color: var(--text-muted);">Player Luck</div>
+            ${game.luckData.map(p => `
+                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                    <div style="display: flex; align-items: center; gap: 8px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: ${p.color}"></div>${p.name}</div>
+                    <div style="font-weight: 600; color: ${p.luckPct > 115 ? 'var(--success)' : (p.luckPct < 85 ? 'var(--danger)' : 'var(--text-main)')}">${p.luckPct}%</div>
+                </div>
+            `).join('')}
+        `;
+        document.getElementById('details-modal').style.display = 'flex';
     }
 
+    function closeDetailsModal() { document.getElementById('details-modal').style.display = 'none'; }
     function getPValue(chiSquare) {
-        const k = 5, x = chiSquare / 2;
-        let sum = 0, term = 1;
+        const k = 5, x = chiSquare / 2; let sum = 0, term = 1;
         for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); }
         return Math.exp(-x) * sum;
     }
-
     function calculateChiSquareValue() {
         let chiSquare = 0;
         for (let i = 2; i <= 12; i++) {
@@ -753,24 +655,15 @@
         }
         return chiSquare;
     }
-
     function calculateChiSquare() {
-        const statusEl = document.getElementById('status-text');
-        const pValueEl = document.getElementById('p-value-text');
-        if (totalRolls < 15) {
-            statusEl.innerText = `Need ${15 - totalRolls} more rolls...`;
-            statusEl.style.color = 'var(--text-muted)';
-            pValueEl.innerText = "";
-            return;
-        }
-        const pValue = getPValue(calculateChiSquareValue());
-        statusEl.innerText = pValue < 0.05 ? "χ² — Suspicious!" : "χ² — Normal (Fair Dice)";
-        statusEl.style.color = pValue < 0.05 ? 'var(--danger)' : 'var(--success)';
-        pValueEl.innerText = `p-value: ${pValue.toFixed(4)} (${(pValue * 100).toFixed(1)}% likelihood)`;
+        const sEl = document.getElementById('status-text'), pEl = document.getElementById('p-value-text');
+        if (totalRolls < 15) { sEl.innerText = `Need ${15 - totalRolls} more rolls...`; sEl.style.color = 'var(--text-muted)'; pEl.innerText = ""; return; }
+        const p = getPValue(calculateChiSquareValue());
+        sEl.innerText = p < 0.05 ? "χ² — Suspicious!" : "χ² — Normal (Fair Dice)";
+        sEl.style.color = p < 0.05 ? 'var(--danger)' : 'var(--success)';
+        pEl.innerText = `p-value: ${p.toFixed(4)} (${(p * 100).toFixed(1)}% likelihood)`;
     }
-
     loadState();
 </script>
-
 </body>
 </html>
