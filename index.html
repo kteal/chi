@@ -15,6 +15,22 @@
             --accent: #007AFF;
             --danger: #FF3B30;
             --success: #34C759;
+            --border: #C6C6C8;
+            --item-bg: #E5E5EA;
+        }
+
+        @media (prefers-color-scheme: dark) {
+            :root {
+                --bg-color: #000000;
+                --card-bg: #1C1C1E;
+                --text-main: #FFFFFF;
+                --text-muted: #8E8E93;
+                --accent: #0A84FF;
+                --danger: #FF453A;
+                --success: #32D74B;
+                --border: #38383A;
+                --item-bg: #2C2C2E;
+            }
         }
 
         * {
@@ -22,14 +38,14 @@
             margin: 0;
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            user-select: none; /* Prevent text highlighting on rapid taps */
-            touch-action: manipulation; /* Prevent double-tap zoom across entire app */
+            user-select: none;
+            touch-action: manipulation;
         }
 
         html, body {
             touch-action: manipulation;
             height: 100%;
-            overflow: hidden; /* Prevent elastic bounce and accidental zoom/scroll issues */
+            overflow: hidden;
         }
 
         body {
@@ -40,7 +56,7 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
-            overflow-y: auto; /* Allow vertical scrolling if keypad overflows */
+            overflow-y: auto;
         }
 
         .container {
@@ -49,9 +65,9 @@
             display: flex;
             flex-direction: column;
             gap: 20px;
+            padding-bottom: 40px;
         }
 
-        /* Header */
         .header {
             text-align: center;
             margin-bottom: 10px;
@@ -66,7 +82,6 @@
             font-size: 17px;
         }
 
-        /* Cards */
         .card {
             background-color: var(--card-bg);
             border-radius: 16px;
@@ -74,14 +89,12 @@
             box-shadow: 0 4px 12px rgba(0,0,0,0.04);
         }
 
-        /* Chart Area */
         .chart-container {
             position: relative;
             height: 200px;
             width: 100%;
         }
 
-        /* Button Grid */
         .keypad {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
@@ -105,10 +118,9 @@
 
         button:active {
             transform: scale(0.95);
-            background-color: #E5E5EA;
+            background-color: var(--item-bg);
         }
 
-        /* Status Output */
         .status-area {
             text-align: center;
             font-size: 15px;
@@ -120,20 +132,19 @@
             margin-top: 4px;
         }
 
-        /* History Log Styling */
         .history-log {
             display: flex;
             gap: 8px;
             overflow-x: auto;
             padding: 4px 0 8px 0;
-            scrollbar-width: none; /* Hide for Firefox */
+            scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
         }
         .history-log::-webkit-scrollbar {
-            display: none; /* Hide for Chrome/Safari */
+            display: none;
         }
         .history-item {
-            background-color: #E5E5EA;
+            background-color: var(--item-bg);
             border-radius: 10px;
             padding: 6px 14px;
             font-size: 16px;
@@ -144,7 +155,32 @@
             touch-action: manipulation;
         }
         .history-item:active {
-            background-color: #D1D1D6;
+            background-color: var(--border);
+        }
+
+        /* Archive Styling */
+        .archive-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        .archive-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border);
+        }
+        .archive-item:last-child {
+            border-bottom: none;
+        }
+        .archive-meta {
+            font-size: 13px;
+            color: var(--text-muted);
+        }
+        .archive-stat {
+            font-weight: 600;
+            font-size: 15px;
         }
     </style>
 </head>
@@ -190,6 +226,13 @@
         <button onclick="undoRoll()" style="color: var(--danger); font-size: 18px;">Undo</button>
         <button onclick="resetGame()" style="grid-column: span 3; color: var(--text-muted); font-size: 14px; margin-top: 8px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
     </div>
+
+    <div id="archive-card" class="card" style="display: none;">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Game Archive (Last 5)</p>
+        <div id="archive-list" class="archive-list">
+            <!-- Past games will appear here -->
+        </div>
+    </div>
 </div>
 
 <script>
@@ -203,6 +246,12 @@
     let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
     let totalRolls = 0;
     let rollHistory = [];
+    let gameArchive = [];
+
+    // Chart.js Theme Colors
+    const isDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const chartTextColor = isDarkMode ? '#8E8E93' : '#8E8E93';
+    const chartGridColor = isDarkMode ? '#38383A' : '#E5E5EA';
 
     // Chart.js Initialization
     const ctx = document.getElementById('distributionChart').getContext('2d');
@@ -214,7 +263,7 @@
                 {
                     label: 'Actual',
                     data: Object.values(rollCounts),
-                    backgroundColor: '#007AFF',
+                    backgroundColor: isDarkMode ? '#0A84FF' : '#007AFF',
                     borderRadius: 4,
                 }
             ]
@@ -224,8 +273,15 @@
             maintainAspectRatio: false,
             animation: { duration: 300 },
             scales: {
-                y: { beginAtZero: true, ticks: { precision: 0 } },
-                x: { grid: { display: false } }
+                y: { 
+                    beginAtZero: true, 
+                    ticks: { precision: 0, color: chartTextColor },
+                    grid: { color: chartGridColor }
+                },
+                x: { 
+                    grid: { display: false },
+                    ticks: { color: chartTextColor }
+                }
             },
             plugins: {
                 legend: { display: false },
@@ -236,20 +292,22 @@
 
     // Persistence
     function saveState() {
-        localStorage.setItem('chi_game_state', JSON.stringify({
+        localStorage.setItem('chi_game_state_v2', JSON.stringify({
             rollCounts,
             totalRolls,
-            rollHistory
+            rollHistory,
+            gameArchive
         }));
     }
 
     function loadState() {
-        const saved = localStorage.getItem('chi_game_state');
+        const saved = localStorage.getItem('chi_game_state_v2');
         if (saved) {
             const state = JSON.parse(saved);
             rollCounts = state.rollCounts;
             totalRolls = state.totalRolls;
             rollHistory = state.rollHistory || [];
+            gameArchive = state.gameArchive || [];
             refreshUI();
         }
     }
@@ -259,18 +317,15 @@
         rollCounts[number]++;
         totalRolls++;
         rollHistory.push(number);
-        
         saveState();
         refreshUI();
     }
 
     function undoRoll() {
         if (rollHistory.length === 0) return;
-        
         const lastRoll = rollHistory.pop();
         rollCounts[lastRoll]--;
         totalRolls--;
-        
         saveState();
         refreshUI();
     }
@@ -279,30 +334,37 @@
         const oldValue = rollHistory[index];
         const input = prompt(`Change roll from ${oldValue} to:`, oldValue);
         if (input === null) return;
-        
         const newValue = parseInt(input);
         if (isNaN(newValue) || newValue < 2 || newValue > 12) {
             alert("Please enter a valid roll between 2 and 12.");
             return;
         }
-        
         rollHistory[index] = newValue;
-        
-        // Recalculate counts
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         rollHistory.forEach(num => rollCounts[num]++);
-        
         saveState();
         refreshUI();
     }
 
     function resetGame() {
-        if (!confirm("Are you sure you want to reset the game?")) return;
+        if (totalRolls > 0) {
+            if (confirm("Save current game to archive before resetting?")) {
+                const chiSquare = calculateChiSquareValue();
+                const pValue = getPValue(chiSquare);
+                gameArchive.unshift({
+                    timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
+                    rolls: totalRolls,
+                    pValue: pValue.toFixed(3)
+                });
+                if (gameArchive.length > 5) gameArchive.pop();
+            } else if (!confirm("Discard game and reset?")) {
+                return;
+            }
+        }
         
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         totalRolls = 0;
         rollHistory = [];
-        
         saveState();
         refreshUI();
     }
@@ -313,6 +375,7 @@
         updateChart();
         calculateChiSquare();
         updateHistoryLog();
+        updateArchiveUI();
     }
 
     function updateHistoryLog() {
@@ -322,30 +385,58 @@
         ).reverse().join('');
     }
 
-    // Update the visual graph
+    function updateArchiveUI() {
+        const archiveCard = document.getElementById('archive-card');
+        const archiveList = document.getElementById('archive-list');
+        
+        if (gameArchive.length === 0) {
+            archiveCard.style.display = 'none';
+            return;
+        }
+        
+        archiveCard.style.display = 'block';
+        archiveList.innerHTML = gameArchive.map(game => `
+            <div class="archive-item">
+                <div class="archive-meta">
+                    <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
+                    <div>${game.rolls} rolls</div>
+                </div>
+                <div class="archive-stat" style="color: ${game.pValue < 0.05 ? 'var(--danger)' : 'var(--success)'}">
+                    p = ${game.pValue}
+                </div>
+            </div>
+        `).join('');
+    }
+
     function updateChart() {
         chart.data.datasets[0].data = Object.values(rollCounts);
         chart.update();
     }
 
-    // Statistical Helper: Calculate p-value for Chi-Square with 10 Degrees of Freedom
-    // Since df=10 is even, we can use the exact formula based on the Poisson distribution
     function getPValue(chiSquare) {
-        const k = 10 / 2; // df / 2
+        const k = 10 / 2;
         const x = chiSquare / 2;
-        
-        // Exact formula for even degrees of freedom: p = e^(-x) * sum_{j=0}^{k-1} (x^j / j!)
         let sum = 0;
-        let term = 1; // x^0 / 0!
+        let term = 1;
         for (let j = 0; j < k; j++) {
             sum += term;
             term *= x / (j + 1);
         }
-        
         return Math.exp(-x) * sum;
     }
 
-    // Statistical Engine
+    function calculateChiSquareValue() {
+        let chiSquare = 0;
+        for (let i = 2; i <= 12; i++) {
+            let observed = rollCounts[i];
+            let expected = totalRolls * probabilities[i];
+            if (expected > 0) {
+                chiSquare += Math.pow((observed - expected), 2) / expected;
+            }
+        }
+        return chiSquare;
+    }
+
     function calculateChiSquare() {
         const statusEl = document.getElementById('status-text');
         const pValueEl = document.getElementById('p-value-text');
@@ -357,15 +448,7 @@
             return;
         }
 
-        let chiSquare = 0;
-        for (let i = 2; i <= 12; i++) {
-            let observed = rollCounts[i];
-            let expected = totalRolls * probabilities[i];
-            if (expected > 0) {
-                chiSquare += Math.pow((observed - expected), 2) / expected;
-            }
-        }
-
+        const chiSquare = calculateChiSquareValue();
         const pValue = getPValue(chiSquare);
         const criticalValue = 18.31; 
 
@@ -380,7 +463,6 @@
         pValueEl.innerText = `p-value: ${pValue.toFixed(4)} (${(pValue * 100).toFixed(1)}% likelihood)`;
     }
 
-    // Initialize
     loadState();
 </script>
 
