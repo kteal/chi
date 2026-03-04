@@ -227,6 +227,40 @@
             color: white;
         }
 
+        /* Player Creator Modal */
+        #player-modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.4);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .modal-content {
+            background: var(--card-bg);
+            width: 100%;
+            max-width: 300px;
+            border-radius: 20px;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+        .modal-content h3 { font-size: 17px; text-align: center; }
+        .color-options { display: flex; justify-content: center; gap: 15px; }
+        .color-dot {
+            width: 34px; height: 34px; border-radius: 50%; cursor: pointer;
+            border: 3px solid transparent; transition: border-color 0.2s;
+        }
+        .color-dot.selected { border-color: var(--text-main); }
+        .modal-input {
+            background: var(--bg-color);
+            border: none; border-radius: 10px; padding: 12px;
+            color: var(--text-main); font-size: 16px; outline: none;
+        }
+
         /* Archive Styling */
         .archive-list {
             display: flex;
@@ -284,6 +318,23 @@
 </head>
 <body>
 
+<div id="player-modal">
+    <div class="modal-content">
+        <h3>Add Player</h3>
+        <input type="text" id="player-name-input" class="modal-input" placeholder="Player Name" maxlength="12">
+        <div class="color-options">
+            <div class="color-dot selected" style="background: #FF3B30;" onclick="selectModalColor(this, '#FF3B30')"></div>
+            <div class="color-dot" style="background: #007AFF;" onclick="selectModalColor(this, '#007AFF')"></div>
+            <div class="color-dot" style="background: #FF9500;" onclick="selectModalColor(this, '#FF9500')"></div>
+            <div class="color-dot" style="background: #E5E5EA; border: 1px solid var(--border);" onclick="selectModalColor(this, '#E5E5EA')"></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
+            <button onclick="closeModal()" style="font-size: 15px; padding: 10px 0; color: var(--text-muted); background: none; box-shadow: none;">Cancel</button>
+            <button onclick="confirmAddPlayer()" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Add</button>
+        </div>
+    </div>
+</div>
+
 <div class="container">
     <div class="header">
         <div style="display: flex; align-items: center; justify-content: center; gap: 12px; margin-bottom: 4px;">
@@ -305,20 +356,15 @@
         <div id="p-value-text" style="color: var(--text-muted); font-size: 13px; margin-top: 2px;"></div>
     </div>
 
-    <!-- Luck Tracker Card -->
     <div class="card">
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Luck Tracker (Efficiency)</p>
-        <div id="player-list" class="player-list">
-            <!-- Players will appear here -->
-        </div>
-        <button onclick="addPlayer()" style="width: 100%; font-size: 14px; padding: 8px 0; margin-top: 12px; background: none; box-shadow: none; border: 1px dashed var(--border); color: var(--text-muted);">+ Add Player</button>
+        <div id="player-list" class="player-list"></div>
+        <button onclick="openPlayerModal()" style="width: 100%; font-size: 14px; padding: 8px 0; margin-top: 12px; background: none; box-shadow: none; border: 1px dashed var(--border); color: var(--text-muted);">+ Add Player</button>
     </div>
 
     <div class="card" style="padding: 12px;">
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Recent Rolls (Tap to Edit)</p>
-        <div id="history-log" class="history-log">
-            <!-- Rolls will appear here -->
-        </div>
+        <div id="history-log" class="history-log"></div>
     </div>
 
     <div class="keypad">
@@ -342,9 +388,7 @@
 
     <div id="archive-card" class="card" style="padding: 0; overflow: hidden; display: none;">
         <p style="color: var(--text-muted); font-size: 13px; padding: 16px 16px 8px 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Game Archive (Last 5)</p>
-        <div id="archive-list" class="archive-list">
-            <!-- Past games will appear here -->
-        </div>
+        <div id="archive-list" class="archive-list"></div>
     </div>
 </div>
 
@@ -354,18 +398,14 @@
         8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36
     };
 
-    const playerColors = ['#FF3B30', '#007AFF', '#34C759', '#FF9500', '#AF52DE', '#5856D6'];
-
-    // Application State
     let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
     let totalRolls = 0;
     let rollHistory = [];
     let gameArchive = [];
-    let players = []; // { name, color, numbers: [6, 8] }
+    let players = [];
+    let selectedModalColor = '#FF3B30';
 
-    function haptic() {
-        if (navigator.vibrate) navigator.vibrate(10);
-    }
+    function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
 
     function getThemeColors() {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
@@ -383,41 +423,17 @@
         data: {
             labels: ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
             datasets: [
-                {
-                    label: 'Actual',
-                    data: Object.values(rollCounts),
-                    backgroundColor: getThemeColors().accent,
-                    borderRadius: 4,
-                    zIndex: 2
-                },
-                {
-                    label: 'Expected',
-                    data: Object.values(probabilities).map(p => p * 0),
-                    backgroundColor: getThemeColors().ghost,
-                    borderRadius: 4,
-                    zIndex: 1
-                }
+                { label: 'Actual', data: Object.values(rollCounts), backgroundColor: getThemeColors().accent, borderRadius: 4, zIndex: 2 },
+                { label: 'Expected', data: Object.values(probabilities).map(p => p * 0), backgroundColor: getThemeColors().ghost, borderRadius: 4, zIndex: 1 }
             ]
         },
         options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            animation: { duration: 300 },
+            responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
             scales: {
-                y: { 
-                    beginAtZero: true, 
-                    ticks: { precision: 0, color: getThemeColors().text },
-                    grid: { color: getThemeColors().grid }
-                },
-                x: { 
-                    grid: { display: false },
-                    ticks: { color: getThemeColors().text }
-                }
+                y: { beginAtZero: true, ticks: { precision: 0, color: getThemeColors().text }, grid: { color: getThemeColors().grid } },
+                x: { grid: { display: false }, ticks: { color: getThemeColors().text } }
             },
-            plugins: {
-                legend: { display: false },
-                tooltip: { enabled: false }
-            }
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }
         }
     });
 
@@ -431,31 +447,44 @@
         chart.update();
     });
 
+    function openPlayerModal() {
+        document.getElementById('player-modal').style.display = 'flex';
+        document.getElementById('player-name-input').focus();
+    }
+
+    function closeModal() {
+        document.getElementById('player-modal').style.display = 'none';
+        document.getElementById('player-name-input').value = '';
+    }
+
+    function selectModalColor(el, color) {
+        document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+        el.classList.add('selected');
+        selectedModalColor = color;
+    }
+
+    function confirmAddPlayer() {
+        const name = document.getElementById('player-name-input').value;
+        if (!name) return;
+        players.push({ name, color: selectedModalColor, numbers: [] });
+        saveState();
+        refreshUI();
+        closeModal();
+    }
+
     function saveState() {
-        localStorage.setItem('chi_game_state_v3', JSON.stringify({
-            rollCounts,
-            totalRolls,
-            rollHistory,
-            gameArchive,
-            players
-        }));
+        localStorage.setItem('chi_game_state_v3', JSON.stringify({ rollCounts, totalRolls, rollHistory, gameArchive, players }));
     }
 
     function loadState() {
         const urlParams = new URLSearchParams(window.location.search);
         const sharedData = urlParams.get('game');
-        
         if (sharedData) {
             try {
                 const data = JSON.parse(atob(sharedData));
                 if (confirm("Load shared game data?")) {
-                    if (Array.isArray(data)) { // Legacy share (v2)
-                        rollHistory = data;
-                        players = [];
-                    } else { // v3 share
-                        rollHistory = data.history || [];
-                        players = data.players || [];
-                    }
+                    if (Array.isArray(data)) { rollHistory = data; players = []; }
+                    else { rollHistory = data.history || []; players = data.players || []; }
                     rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
                     rollHistory.forEach(num => rollCounts[num]++);
                     totalRolls = rollHistory.length;
@@ -465,7 +494,6 @@
                 }
             } catch (e) { console.error(e); }
         }
-
         const saved = localStorage.getItem('chi_game_state_v3');
         if (saved) {
             const state = JSON.parse(saved);
@@ -476,19 +504,6 @@
             players = state.players || [];
             refreshUI();
         }
-    }
-
-    function addPlayer() {
-        haptic();
-        const name = prompt("Player Name:");
-        if (!name) return;
-        players.push({
-            name: name,
-            color: playerColors[players.length % playerColors.length],
-            numbers: []
-        });
-        saveState();
-        refreshUI();
     }
 
     function togglePlayerNumber(playerIndex, num) {
@@ -514,11 +529,8 @@
         if (rollHistory.length === 0) return;
         const data = btoa(JSON.stringify({ history: rollHistory, players: players }));
         const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
-        if (navigator.share) {
-            navigator.share({ title: 'Chi Stats', url: url }).catch(console.error);
-        } else {
-            navigator.clipboard.writeText(url).then(() => alert("Link copied!"));
-        }
+        if (navigator.share) { navigator.share({ title: 'Chi Stats', url: url }).catch(console.error); }
+        else { navigator.clipboard.writeText(url).then(() => alert("Link copied!")); }
     }
 
     function addRoll(number) {
@@ -599,13 +611,15 @@
             });
             
             const expectedHits = totalRolls * expectedProb;
-            const luckRatio = expectedHits > 0 ? (actualHits / expectedHits) : 1;
-            const luckPct = Math.round(luckRatio * 100);
+            let luckPct = 100;
+            if (expectedHits > 0.01) {
+                luckPct = Math.round((actualHits / expectedHits) * 100);
+            }
             
             let badgeColor = 'var(--text-muted)';
-            if (totalRolls >= 10) {
-                if (luckPct > 120) badgeColor = 'var(--success)';
-                else if (luckPct < 80) badgeColor = 'var(--danger)';
+            if (totalRolls >= 10 && p.numbers.length > 0) {
+                if (luckPct > 115) badgeColor = 'var(--success)';
+                else if (luckPct < 85) badgeColor = 'var(--danger)';
             }
 
             return `
