@@ -50,7 +50,6 @@
 
         html, body {
             touch-action: manipulation;
-            height: 100%;
             height: 100dvh;
             overflow: hidden;
         }
@@ -62,8 +61,6 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            min-height: 100vh;
-            min-height: 100dvh;
             overflow-y: auto;
         }
 
@@ -121,7 +118,6 @@
             transition: transform 0.1s ease, background-color 0.1s ease;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
         }
 
         button:active {
@@ -160,13 +156,11 @@
             flex-shrink: 0;
             cursor: pointer;
             transition: background-color 0.1s ease;
-            touch-action: manipulation;
         }
         .history-item:active {
             background-color: var(--border);
         }
 
-        /* Player Luck Tracker Styling */
         .player-list {
             display: flex;
             flex-direction: column;
@@ -232,7 +226,6 @@
             color: white;
         }
 
-        /* Modal Styling */
         .modal-overlay {
             display: none;
             position: fixed;
@@ -268,7 +261,6 @@
             color: var(--text-main); font-size: 16px; outline: none;
         }
 
-        /* Archive Styling */
         .archive-list {
             display: flex;
             flex-direction: column;
@@ -317,25 +309,24 @@
 </head>
 <body>
 
-<!-- Player Creator Modal -->
+<!-- Modals -->
 <div id="player-modal" class="modal-overlay">
     <div class="modal-content">
         <h3>Add Player</h3>
         <input type="text" id="player-name-input" class="modal-input" placeholder="Player Name" maxlength="12">
-        <div class="color-options">
-            <div class="color-dot selected" style="background: #FF3B30;" onclick="selectModalColor(this, '#FF3B30')"></div>
-            <div class="color-dot" style="background: #007AFF;" onclick="selectModalColor(this, '#007AFF')"></div>
-            <div class="color-dot" style="background: #FF9500;" onclick="selectModalColor(this, '#FF9500')"></div>
-            <div class="color-dot" style="background: #E5E5EA; border: 1px solid var(--border);" onclick="selectModalColor(this, '#E5E5EA')"></div>
+        <div class="color-options" id="modal-color-options">
+            <div class="color-dot selected" style="background: #FF3B30;" data-color="#FF3B30"></div>
+            <div class="color-dot" style="background: #007AFF;" data-color="#007AFF"></div>
+            <div class="color-dot" style="background: #FF9500;" data-color="#FF9500"></div>
+            <div class="color-dot" style="background: #E5E5EA; border: 1px solid var(--border);" data-color="#E5E5EA"></div>
         </div>
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px;">
-            <button onclick="closePlayerModal()" style="font-size: 15px; padding: 10px 0; color: var(--text-muted); background: none; box-shadow: none;">Cancel</button>
-            <button onclick="confirmAddPlayer()" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Add</button>
+            <button id="modal-cancel-btn" style="font-size: 15px; padding: 10px 0; color: var(--text-muted); background: none; box-shadow: none;">Cancel</button>
+            <button id="modal-confirm-btn" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Add</button>
         </div>
     </div>
 </div>
 
-<!-- Game Details Modal -->
 <div id="details-modal" class="modal-overlay">
     <div class="modal-content" style="max-width: 360px;">
         <h3 id="details-title">Game Details</h3>
@@ -343,7 +334,7 @@
             <canvas id="detailsChart"></canvas>
         </div>
         <div id="details-players" style="max-height: 200px; overflow-y: auto;"></div>
-        <button onclick="closeDetailsModal()" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Close</button>
+        <button id="details-close-btn" style="font-size: 15px; padding: 10px 0; color: var(--accent); background: none; box-shadow: none; font-weight: bold;">Close</button>
     </div>
 </div>
 
@@ -371,7 +362,7 @@
     <div class="card">
         <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Luck Tracker (Efficiency)</p>
         <div id="player-list" class="player-list"></div>
-        <button onclick="openPlayerModal()" style="width: 100%; font-size: 14px; padding: 8px 0; margin-top: 12px; background: none; box-shadow: none; border: 1px dashed var(--border); color: var(--text-muted);">+ Add Player</button>
+        <button id="add-player-btn" style="width: 100%; font-size: 14px; padding: 8px 0; margin-top: 12px; background: none; box-shadow: none; border: 1px dashed var(--border); color: var(--text-muted);">+ Add Player</button>
     </div>
 
     <div class="card" style="padding: 12px;">
@@ -379,22 +370,22 @@
         <div id="history-log" class="history-log"></div>
     </div>
 
-    <div class="keypad">
-        <button onclick="addRoll(2)">2</button>
-        <button onclick="addRoll(3)">3</button>
-        <button onclick="addRoll(4)">4</button>
-        <button onclick="addRoll(5)">5</button>
-        <button onclick="addRoll(6)">6</button>
-        <button onclick="addRoll(7)">7</button>
-        <button onclick="addRoll(8)">8</button>
-        <button onclick="addRoll(9)">9</button>
-        <button onclick="addRoll(10)">10</button>
-        <button onclick="addRoll(11)">11</button>
-        <button onclick="addRoll(12)">12</button>
-        <button onclick="undoRoll()" style="color: var(--danger); font-size: 18px;">Undo</button>
+    <div class="keypad" id="roll-keypad">
+        <button data-val="2">2</button>
+        <button data-val="3">3</button>
+        <button data-val="4">4</button>
+        <button data-val="5">5</button>
+        <button data-val="6">6</button>
+        <button data-val="7">7</button>
+        <button data-val="8">8</button>
+        <button data-val="9">9</button>
+        <button data-val="10">10</button>
+        <button data-val="11">11</button>
+        <button data-val="12">12</button>
+        <button id="undo-btn" style="color: var(--danger); font-size: 18px;">Undo</button>
         <div style="grid-column: span 3; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
-            <button onclick="shareGame()" style="color: var(--accent); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Share Link</button>
-            <button onclick="resetGame()" style="color: var(--text-muted); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
+            <button id="share-btn" style="color: var(--accent); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Share Link</button>
+            <button id="reset-btn" style="color: var(--text-muted); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
         </div>
     </div>
 
@@ -405,230 +396,221 @@
 </div>
 
 <script>
-    const probabilities = { 2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36, 8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36 };
-    var rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-    var totalRolls = 0, rollHistory = [], gameArchive = [], players = [], selectedModalColor = '#FF3B30';
+/**
+ * Chi - The Statistical Catan Dice Tracker
+ * Architectural Overhaul - Modern Vanilla JS
+ */
 
-    function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
-    function getThemeColors() {
-        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return { accent: isDark ? '#0A84FF' : '#007AFF', text: '#8E8E93', grid: isDark ? '#38383A' : '#E5E5EA', ghost: isDark ? 'rgba(142, 142, 147, 0.2)' : 'rgba(142, 142, 147, 0.15)' };
-    }
+const PROBABILITIES = { 2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36, 8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36 };
 
-    const ctx = document.getElementById('distributionChart').getContext('2d');
-    const chart = new Chart(ctx, {
-        type: 'bar',
-        data: {
-            labels: ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-            datasets: [
-                { label: 'Actual', data: Object.values(rollCounts), backgroundColor: getThemeColors().accent, borderRadius: 4, zIndex: 2 },
-                { label: 'Expected', data: Object.values(probabilities).map(p => p * 0), backgroundColor: getThemeColors().ghost, borderRadius: 4, zIndex: 1 }
-            ]
-        },
-        options: {
-            responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
-            scales: {
-                y: { beginAtZero: true, ticks: { precision: 0, color: getThemeColors().text }, grid: { color: getThemeColors().grid } },
-                x: { grid: { display: false }, ticks: { color: getThemeColors().text } }
-            },
-            plugins: { legend: { display: false }, tooltip: { enabled: false } }
-        }
-    });
+// --- App State ---
+const State = {
+    rolls: [],
+    counts: {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0},
+    players: [],
+    archive: [],
+    selectedColor: '#FF3B30',
 
-    const detailCtx = document.getElementById('detailsChart').getContext('2d');
-    const detailsChart = new Chart(detailCtx, {
-        type: 'bar',
-        data: {
-            labels: ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
-            datasets: [{ label: 'Rolls', data: [], backgroundColor: getThemeColors().accent, borderRadius: 2 }]
-        },
-        options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { grid: { display: false }, ticks: { font: { size: 10 } } } }, plugins: { legend: { display: false } } }
-    });
+    reset() {
+        this.rolls = [];
+        this.counts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+        this.players = [];
+        this.save();
+    },
 
-    window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
-        const colors = getThemeColors();
-        [chart, detailsChart].forEach(c => {
-            c.data.datasets[0].backgroundColor = colors.accent;
-            if (c.data.datasets[1]) c.data.datasets[1].backgroundColor = colors.ghost;
-            c.update();
+    addRoll(num) {
+        this.rolls.push(num);
+        this.counts[num]++;
+        this.save();
+    },
+
+    undo() {
+        if (this.rolls.length === 0) return;
+        const last = this.rolls.pop();
+        this.counts[last]--;
+        this.players.forEach(p => {
+            p.assignments.forEach(a => {
+                if (a.startTurn > this.rolls.length) a.startTurn = this.rolls.length;
+            });
         });
-    });
+        this.save();
+    },
 
-    function openPlayerModal() { document.getElementById('player-modal').style.display = 'flex'; document.getElementById('player-name-input').focus(); }
-    function closePlayerModal() { document.getElementById('player-modal').style.display = 'none'; document.getElementById('player-name-input').value = ''; }
-    function selectModalColor(el, color) { document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected')); el.classList.add('selected'); selectedModalColor = color; }
-    function confirmAddPlayer() {
-        const name = document.getElementById('player-name-input').value;
-        if (!name) return;
-        players.push({ id: 'p' + Date.now(), name, color: selectedModalColor, assignments: [] });
-        saveState(); refreshUI(); closePlayerModal();
-    }
+    editRoll(index, newVal) {
+        this.rolls[index] = newVal;
+        this.recalculateCounts();
+        this.save();
+    },
 
-    function saveState() { localStorage.setItem('chi_game_state_v5', JSON.stringify({ rollCounts, totalRolls, rollHistory, gameArchive, players })); }
-    function loadState() {
-        const urlParams = new URLSearchParams(window.location.search);
-        const sharedData = urlParams.get('game');
-        if (sharedData) {
-            try {
-                const data = JSON.parse(atob(sharedData));
-                if (confirm("Load shared game data?")) {
-                    rollHistory = data.history || []; players = data.players || [];
-                    rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-                    rollHistory.forEach(num => rollCounts[num]++);
-                    totalRolls = rollHistory.length;
-                    window.history.replaceState({}, document.title, window.location.pathname);
-                    refreshUI(); return;
-                }
-            } catch (e) { console.error(e); }
-        }
-        const saved = localStorage.getItem('chi_game_state_v5') || localStorage.getItem('chi_game_state_v4');
+    recalculateCounts() {
+        this.counts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+        this.rolls.forEach(n => this.counts[n]++);
+    },
+
+    save() {
+        localStorage.setItem('chi_v6', JSON.stringify({
+            rolls: this.rolls,
+            players: this.players,
+            archive: this.archive
+        }));
+    },
+
+    load() {
+        const saved = localStorage.getItem('chi_v6');
         if (saved) {
-            const state = JSON.parse(saved);
-            rollCounts = state.rollCounts || rollCounts;
-            totalRolls = state.totalRolls || 0;
-            rollHistory = state.rollHistory || [];
-            gameArchive = state.gameArchive || [];
-            players = state.players || [];
-            
-            // Migration
-            players.forEach(p => {
-                if (p.numbers && !p.assignments) {
-                    p.assignments = p.numbers.map(n => ({ num: n, startRoll: 0 }));
-                    delete p.numbers;
-                }
-                if (!p.id) p.id = 'p' + Math.random();
-            });
-            refreshUI();
+            const data = JSON.parse(saved);
+            this.rolls = data.rolls || [];
+            this.players = data.players || [];
+            this.archive = data.archive || [];
+            this.recalculateCounts();
         }
     }
+};
 
-    function togglePlayerNumber(playerId, num) {
-        haptic();
-        const p = players.find(p => p.id === playerId);
-        const idx = p.assignments.findIndex(a => a.num === num);
-        if (idx > -1) p.assignments.splice(idx, 1); else p.assignments.push({ num, startRoll: totalRolls });
-        saveState(); refreshUI();
-    }
+// --- UI Components ---
+const UI = {
+    charts: {},
 
-    function deletePlayer(playerId) { if (confirm("Delete player?")) { players = players.filter(p => p.id !== playerId); saveState(); refreshUI(); } }
-    function addRoll(number) { haptic(); rollCounts[number]++; totalRolls++; rollHistory.push(number); saveState(); refreshUI(); }
-    function undoRoll() {
-        haptic(); if (rollHistory.length === 0) return;
-        const last = rollHistory.pop(); rollCounts[last]--; totalRolls--;
-        players.forEach(p => p.assignments.forEach(a => { if (a.startRoll > totalRolls) a.startRoll = totalRolls; }));
-        saveState(); refreshUI();
-    }
+    init() {
+        this.initCharts();
+        this.attachEventListeners();
+        this.loadFromURL();
+        this.refresh();
+    },
 
-    function editRoll(index) {
-        const oldValue = rollHistory[index];
-        const input = prompt(`Change roll:`, oldValue);
-        if (input === null) return;
-        const newValue = parseInt(input);
-        if (isNaN(newValue) || newValue < 2 || newValue > 12) return;
-        rollHistory[index] = newValue;
-        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-        rollHistory.forEach(num => rollCounts[num]++);
-        saveState(); refreshUI();
-    }
+    initCharts() {
+        const colors = this.getThemeColors();
+        const config = (ctx, isGhost = true) => new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(PROBABILITIES),
+                datasets: [
+                    { label: 'Actual', data: [], backgroundColor: colors.accent, borderRadius: 4, zIndex: 2 },
+                    isGhost ? { label: 'Expected', data: [], backgroundColor: colors.ghost, borderRadius: 4, zIndex: 1 } : null
+                ].filter(Boolean)
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false, animation: { duration: 300 },
+                scales: {
+                    y: { beginAtZero: true, ticks: { precision: 0, color: colors.text }, grid: { color: colors.grid } },
+                    x: { grid: { display: false }, ticks: { color: colors.text } }
+                },
+                plugins: { legend: { display: false }, tooltip: { enabled: false } }
+            }
+        });
 
-    function deleteArchiveItem(index) { haptic(); if (confirm("Delete archived game?")) { gameArchive.splice(index, 1); saveState(); refreshUI(); } }
+        this.charts.main = config(document.getElementById('distributionChart').getContext('2d'));
+        this.charts.details = config(document.getElementById('detailsChart').getContext('2d'), false);
+    },
 
-    function resetGame() {
-        haptic();
-        if (totalRolls > 0 && confirm("Save to archive and clear players?")) {
-            const luckData = players.map(p => {
-                let actual = 0, expected = 0;
-                p.assignments.forEach(a => {
-                    actual += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
-                    expected += (totalRolls - a.startRoll) * probabilities[a.num];
-                });
-                return { name: p.name, color: p.color, luckPct: expected > 0.1 ? Math.round((actual / expected) * 100) : 100 };
-            }).sort((a,b) => b.luckPct - a.luckPct);
+    getThemeColors() {
+        const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        return {
+            accent: isDark ? '#0A84FF' : '#007AFF',
+            text: '#8E8E93',
+            grid: isDark ? '#38383A' : '#E5E5EA',
+            ghost: isDark ? 'rgba(142, 142, 147, 0.2)' : 'rgba(142, 142, 147, 0.15)'
+        };
+    },
 
-            gameArchive.unshift({
-                timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
-                rolls: totalRolls,
-                rollCounts: {...rollCounts},
-                luckData: luckData,
-                pValue: getPValue(calculateChiSquareValue()).toFixed(3)
-            });
-            if (gameArchive.length > 5) gameArchive.pop();
+    refresh() {
+        const total = State.rolls.length;
+        document.getElementById('total-rolls').innerText = total;
+        
+        // Update Chart
+        this.charts.main.data.datasets[0].data = Object.values(State.counts);
+        this.charts.main.data.datasets[1].data = Object.values(PROBABILITIES).map(p => p * total);
+        this.charts.main.update();
+
+        this.updateStats(total);
+        this.updateHistory();
+        this.updateLuckTracker(total);
+        this.updateArchive();
+    },
+
+    updateStats(total) {
+        const sEl = document.getElementById('status-text');
+        const pEl = document.getElementById('p-value-text');
+        if (total < 15) {
+            sEl.innerText = `Need ${15 - total} more rolls...`;
+            sEl.style.color = 'var(--text-muted)';
+            pEl.innerText = "";
+            return;
         }
-        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-        totalRolls = 0; rollHistory = []; players = [];
-        saveState(); refreshUI();
-    }
+        const pValue = this.calculatePValue();
+        sEl.innerText = pValue < 0.05 ? "χ² — Suspicious!" : "χ² — Normal (Fair Dice)";
+        sEl.style.color = pValue < 0.05 ? 'var(--danger)' : 'var(--success)';
+        pEl.innerText = `p-value: ${pValue.toFixed(4)} (${(pValue * 100).toFixed(1)}% likelihood)`;
+    },
 
-    function shareGame() {
-        haptic();
-        if (rollHistory.length === 0) return;
-        const data = btoa(JSON.stringify({ history: rollHistory, players: players }));
-        const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
-        if (navigator.share) { navigator.share({ title: 'Chi Stats', url: url }).catch(console.error); }
-        else { navigator.clipboard.writeText(url).then(() => alert("Link copied!")); }
-    }
+    updateHistory() {
+        const log = document.getElementById('history-log');
+        log.innerHTML = State.rolls.map((num, i) => `<div class="history-item" data-idx="${i}">${num}</div>`).reverse().join('');
+    },
 
-    function refreshUI() {
-        document.getElementById('total-rolls').innerText = totalRolls;
-        chart.data.datasets[0].data = Object.values(rollCounts);
-        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
-        chart.update();
-        calculateChiSquare();
-        document.getElementById('history-log').innerHTML = rollHistory.map((num, idx) => `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`).reverse().join('');
-        updateArchiveUI();
-        updateLuckTracker();
-    }
-
-    function updateLuckTracker() {
+    updateLuckTracker(total) {
         const list = document.getElementById('player-list');
-        const firstPositions = {};
-        list.querySelectorAll('.player-row').forEach(row => firstPositions[row.getAttribute('data-id')] = row.getBoundingClientRect().top);
+        const firstTops = {};
+        list.querySelectorAll('.player-row').forEach(row => firstTops[row.dataset.id] = row.getBoundingClientRect().top);
 
-        const data = players.map(p => {
+        const data = State.players.map(p => {
             let actual = 0, expected = 0;
             p.assignments.forEach(a => {
-                actual += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
-                expected += (totalRolls - a.startRoll) * probabilities[a.num];
+                actual += State.rolls.slice(a.startTurn).filter(n => n === a.num).length;
+                expected += (total - a.startTurn) * PROBABILITIES[a.num];
             });
-            return { ...p, luckPct: expected > 0.1 ? Math.round((actual / expected) * 100) : 100, expectedHits: expected };
+            const luckPct = expected > 0.1 ? Math.round((actual / expected) * 100) : 100;
+            return { ...p, luckPct, expected };
         }).sort((a, b) => b.luckPct - a.luckPct);
 
         list.innerHTML = data.map(p => `
             <div class="player-row" data-id="${p.id}">
                 <div class="player-header">
-                    <div class="player-info" onclick="deletePlayer('${p.id}')">
+                    <div class="player-info" data-action="delete-player" data-id="${p.id}">
                         <div class="player-color" style="background-color: ${p.color}"></div>
                         <div class="player-name">${p.name}</div>
                     </div>
-                    <div class="luck-badge" style="background-color: ${p.expectedHits > 1.5 ? (p.luckPct > 115 ? 'var(--success)' : (p.luckPct < 85 ? 'var(--danger)' : 'var(--text-muted)')) : 'var(--text-muted)'}; color: white;">${p.luckPct}%</div>
+                    <div class="luck-badge" style="background-color: ${p.expected > 1.5 ? (p.luckPct > 115 ? 'var(--success)' : (p.luckPct < 85 ? 'var(--danger)' : 'var(--text-muted)')) : 'var(--text-muted)'}; color: white;">${p.luckPct}%</div>
                 </div>
-                <div class="number-toggles">${[2,3,4,5,6,7,8,9,10,11,12].map(n => `<div class="num-pill ${p.assignments.some(a=>a.num===n)?'active':''}" onclick="togglePlayerNumber('${p.id}', ${n})">${n}</div>`).join('')}</div>
+                <div class="number-toggles">
+                    ${[2,3,4,5,6,7,8,9,10,11,12].map(n => `
+                        <div class="num-pill ${p.assignments.some(a => a.num === n) ? 'active' : ''}" data-id="${p.id}" data-num="${n}">${n}</div>
+                    `).join('')}
+                </div>
             </div>
         `).join('');
 
+        this.animateReorder(list, firstTops);
+    },
+
+    animateReorder(list, firstTops) {
         requestAnimationFrame(() => {
             list.querySelectorAll('.player-row').forEach(row => {
-                const first = firstPositions[row.getAttribute('data-id')];
-                if (first) {
-                    const diff = first - row.getBoundingClientRect().top;
-                    if (diff !== 0) {
-                        row.style.transition = 'none'; row.style.transform = `translateY(${diff}px)`;
-                        requestAnimationFrame(() => { row.style.transition = 'transform 0.4s cubic-bezier(0.2, 0, 0, 1)'; row.style.transform = 'translateY(0)'; });
-                    }
+                const first = firstTops[row.dataset.id];
+                if (!first) return;
+                const diff = first - row.getBoundingClientRect().top;
+                if (diff !== 0) {
+                    row.style.transition = 'none';
+                    row.style.transform = `translateY(${diff}px)`;
+                    requestAnimationFrame(() => {
+                        row.style.transition = 'transform 0.4s cubic-bezier(0.2, 0, 0, 1)';
+                        row.style.transform = 'translateY(0)';
+                    });
                 }
             });
         });
-    }
+    },
 
-    function updateArchiveUI() {
-        const card = document.getElementById('archive-card'), list = document.getElementById('archive-list');
-        if (gameArchive.length === 0) { card.style.display = 'none'; return; }
+    updateArchive() {
+        const card = document.getElementById('archive-card');
+        const list = document.getElementById('archive-list');
+        if (State.archive.length === 0) { card.style.display = 'none'; return; }
         card.style.display = 'block';
-        list.innerHTML = gameArchive.map((game, i) => `
+        list.innerHTML = State.archive.map((game, i) => `
             <div class="archive-item-wrapper">
-                <div class="archive-action-btn btn-info" onclick="showGameDetails(${i})">Info</div>
-                <div class="archive-action-btn btn-delete" onclick="deleteArchiveItem(${i})">Delete</div>
-                <div class="archive-item" id="archive-item-${i}">
+                <div class="archive-action-btn btn-info" data-idx="${i}">Info</div>
+                <div class="archive-action-btn btn-delete" data-idx="${i}">Delete</div>
+                <div class="archive-item" id="arch-${i}">
                     <div class="archive-meta">
                         <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
                         <div>${game.rolls} rolls</div>
@@ -637,9 +619,12 @@
                 </div>
             </div>
         `).join('');
+        this.attachArchiveSwipeListeners();
+    },
 
-        gameArchive.forEach((_, i) => {
-            const el = document.getElementById(`archive-item-${i}`);
+    attachArchiveSwipeListeners() {
+        State.archive.forEach((_, i) => {
+            const el = document.getElementById(`arch-${i}`);
             let startX = 0, currentX = 0, isSwiping = false;
             const start = (x) => { startX = x; el.style.transition = 'none'; isSwiping = true; };
             const move = (x) => { if (!isSwiping) return; currentX = x - startX; el.style.transform = `translateX(${Math.min(Math.max(currentX, -80), 80)}px)`; };
@@ -649,45 +634,197 @@
                 else if (currentX > 40) el.style.transform = 'translateX(80px)';
                 else el.style.transform = 'translateX(0)';
             };
-            el.addEventListener('touchstart', (e) => start(e.touches[0].clientX), { passive: true });
-            el.addEventListener('touchmove', (e) => move(e.touches[0].clientX), { passive: true });
+            el.addEventListener('touchstart', e => start(e.touches[0].clientX), {passive:true});
+            el.addEventListener('touchmove', e => move(e.touches[0].clientX), {passive:true});
             el.addEventListener('touchend', end);
-            el.addEventListener('mousedown', (e) => start(e.clientX));
-            window.addEventListener('mousemove', (e) => move(e.clientX));
+            el.addEventListener('mousedown', e => start(e.clientX));
+            window.addEventListener('mousemove', e => move(e.clientX));
             window.addEventListener('mouseup', end);
         });
-    }
+    },
 
-    function showGameDetails(index) {
-        haptic();
-        const game = gameArchive[index];
+    attachEventListeners() {
+        // Keypad
+        document.getElementById('roll-keypad').addEventListener('click', e => {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+            this.haptic();
+            if (btn.id === 'undo-btn') State.undo();
+            else if (btn.id === 'share-btn') this.share();
+            else if (btn.id === 'reset-btn') this.resetGame();
+            else if (btn.dataset.val) State.addRoll(parseInt(btn.dataset.val));
+            this.refresh();
+        });
+
+        // Player Actions
+        document.getElementById('add-player-btn').addEventListener('click', () => { this.haptic(); this.openModal('player-modal'); });
+        document.getElementById('modal-color-options').addEventListener('click', e => {
+            const dot = e.target.closest('.color-dot');
+            if (!dot) return;
+            document.querySelectorAll('.color-dot').forEach(d => d.classList.remove('selected'));
+            dot.classList.add('selected');
+            State.selectedColor = dot.dataset.color;
+        });
+        document.getElementById('modal-confirm-btn').addEventListener('click', () => this.confirmAddPlayer());
+        document.getElementById('modal-cancel-btn').addEventListener('click', () => this.closeModal('player-modal'));
+
+        document.getElementById('player-list').addEventListener('click', e => {
+            const pill = e.target.closest('.num-pill');
+            if (pill) return this.togglePlayerNum(pill.dataset.id, parseInt(pill.dataset.num));
+            
+            const info = e.target.closest('[data-action="delete-player"]');
+            if (info) this.deletePlayer(info.dataset.id);
+        });
+
+        // History
+        document.getElementById('history-log').addEventListener('click', e => {
+            const item = e.target.closest('.history-item');
+            if (item) this.editRoll(parseInt(item.dataset.idx));
+        });
+
+        // Archive
+        document.getElementById('archive-list').addEventListener('click', e => {
+            const btn = e.target.closest('.archive-action-btn');
+            if (!btn) return;
+            const idx = parseInt(btn.dataset.idx);
+            if (btn.classList.contains('btn-info')) this.showGameDetails(idx);
+            else if (btn.classList.contains('btn-delete')) this.deleteArchiveItem(idx);
+        });
+
+        document.getElementById('details-close-btn').addEventListener('click', () => this.closeModal('details-modal'));
+
+        // Theme Listener
+        window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+            const colors = this.getThemeColors();
+            [this.charts.main, this.charts.details].forEach(c => {
+                c.options.scales.y.ticks.color = colors.text;
+                c.options.scales.y.grid.color = colors.grid;
+                c.options.scales.x.ticks.color = colors.text;
+                c.data.datasets[0].backgroundColor = colors.accent;
+                if (c.data.datasets[1]) c.data.datasets[1].backgroundColor = colors.ghost;
+                c.update();
+            });
+        });
+    },
+
+    haptic() { if (navigator.vibrate) navigator.vibrate(10); },
+
+    openModal(id) { document.getElementById(id).style.display = 'flex'; if(id==='player-modal') document.getElementById('player-name-input').focus(); },
+    closeModal(id) { document.getElementById(id).style.display = 'none'; },
+
+    confirmAddPlayer() {
+        const input = document.getElementById('player-name-input');
+        if (!input.value) return;
+        State.players.push({ id: 'p' + Date.now(), name: input.value, color: State.selectedColor, assignments: [] });
+        input.value = '';
+        State.save(); this.refresh(); this.closeModal('player-modal');
+    },
+
+    togglePlayerNum(pid, num) {
+        this.haptic();
+        const p = State.players.find(p => p.id === pid);
+        const idx = p.assignments.findIndex(a => a.num === num);
+        if (idx > -1) p.assignments.splice(idx, 1);
+        else p.assignments.push({ num, startTurn: State.rolls.length });
+        State.save(); this.refresh();
+    },
+
+    deletePlayer(pid) {
+        if (confirm("Delete player?")) { State.players = State.players.filter(p => p.id !== pid); State.save(); this.refresh(); }
+    },
+
+    editRoll(idx) {
+        const newVal = parseInt(prompt("Change roll:", State.rolls[idx]));
+        if (isNaN(newVal) || newVal < 2 || newVal > 12) return;
+        State.editRoll(idx, newVal); this.refresh();
+    },
+
+    deleteArchiveItem(idx) {
+        if (confirm("Delete archived game?")) { State.archive.splice(idx, 1); State.save(); this.refresh(); }
+    },
+
+    resetGame() {
+        this.haptic();
+        if (State.rolls.length > 0 && confirm("Save to archive and clear players?")) {
+            const p = this.calculatePValue();
+            const luckData = State.players.map(p => {
+                let actual = 0, expected = 0;
+                p.assignments.forEach(a => {
+                    actual += State.rolls.slice(a.startTurn).filter(n => n === a.num).length;
+                    expected += (State.rolls.length - a.startTurn) * PROBABILITIES[a.num];
+                });
+                return { name: p.name, color: p.color, luckPct: expected > 0.1 ? Math.round((actual/expected)*100) : 100 };
+            }).sort((a,b) => b.luckPct - a.luckPct);
+
+            State.archive.unshift({
+                timestamp: new Date().toLocaleString([], {month: 'short', day: 'numeric', hour: '2-digit', minute:'2-digit'}),
+                rolls: State.rolls.length,
+                rollCounts: {...State.counts},
+                luckData,
+                pValue: p.toFixed(3)
+            });
+            if (State.archive.length > 5) State.archive.pop();
+        }
+        State.reset(); this.refresh();
+    },
+
+    showGameDetails(idx) {
+        const game = State.archive[idx];
         document.getElementById('details-title').innerText = `Game: ${game.timestamp}`;
-        detailsChart.data.datasets[0].data = Object.values(game.rollCounts);
-        detailsChart.update();
+        this.charts.details.data.datasets[0].data = Object.values(game.rollCounts);
+        this.charts.details.update();
         document.getElementById('details-players').innerHTML = `
-            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 12px 0 8px 0; color: var(--text-muted);">Player Luck</div>
+            <div style="font-size: 13px; font-weight: 600; text-transform: uppercase; margin: 12px 0 8px 0; color: var(--text-muted);">Final Luck</div>
             ${game.luckData.map(p => `
-                <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid var(--border);">
+                <div style="display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border);">
                     <div style="display: flex; align-items: center; gap: 8px;"><div style="width: 8px; height: 8px; border-radius: 50%; background: ${p.color}"></div>${p.name}</div>
                     <div style="font-weight: 600; color: ${p.luckPct > 115 ? 'var(--success)' : (p.luckPct < 85 ? 'var(--danger)' : 'var(--text-main)')}">${p.luckPct}%</div>
                 </div>
             `).join('')}
         `;
-        document.getElementById('details-modal').style.display = 'flex';
-    }
+        this.openModal('details-modal');
+    },
 
-    function closeDetailsModal() { document.getElementById('details-modal').style.display = 'none'; }
-    function getPValue(chiSquare) { const k = 5, x = chiSquare / 2; let sum = 0, term = 1; for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); } return Math.exp(-x) * sum; }
-    function calculateChiSquareValue() { let chiSquare = 0; for (let i = 2; i <= 12; i++) { let observed = rollCounts[i], expected = totalRolls * probabilities[i]; if (expected > 0) chiSquare += Math.pow((observed - expected), 2) / expected; } return chiSquare; }
-    function calculateChiSquare() {
-        const sEl = document.getElementById('status-text'), pEl = document.getElementById('p-value-text');
-        if (totalRolls < 15) { sEl.innerText = `Need ${15 - totalRolls} more rolls...`; sEl.style.color = 'var(--text-muted)'; pEl.innerText = ""; return; }
-        const p = getPValue(calculateChiSquareValue());
-        sEl.innerText = p < 0.05 ? "χ² — Suspicious!" : "χ² — Normal (Fair Dice)";
-        sEl.style.color = p < 0.05 ? 'var(--danger)' : 'var(--success)';
-        pEl.innerText = `p-value: ${p.toFixed(4)} (${(p * 100).toFixed(1)}% likelihood)`;
+    share() {
+        this.haptic();
+        if (State.rolls.length === 0) return;
+        const data = btoa(JSON.stringify({ history: State.rolls, players: State.players }));
+        const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
+        if (navigator.share) navigator.share({ title: 'Chi Stats', url: url }).catch(e => {});
+        else { navigator.clipboard.writeText(url).then(() => alert("Link copied!")); }
+    },
+
+    loadFromURL() {
+        const shared = new URLSearchParams(window.location.search).get('game');
+        if (shared) {
+            try {
+                const data = JSON.parse(atob(shared));
+                if (confirm("Load shared game data?")) {
+                    State.rolls = data.history || [];
+                    State.players = data.players || [];
+                    State.recalculateCounts();
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                }
+            } catch(e) {}
+        }
+    },
+
+    calculatePValue() {
+        const chiSq = Object.keys(PROBABILITIES).reduce((sum, n) => {
+            const exp = State.rolls.length * PROBABILITIES[n];
+            return sum + (exp > 0 ? Math.pow(State.counts[n] - exp, 2) / exp : 0);
+        }, 0);
+        const k = 5, x = chiSq / 2;
+        let sum = 0, term = 1;
+        for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); }
+        return Math.exp(-x) * sum;
     }
-    loadState();
+};
+
+// --- Lifecycle ---
+State.load();
+UI.init();
+
 </script>
 </body>
 </html>
