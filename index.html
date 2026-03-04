@@ -23,7 +23,13 @@
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             user-select: none; /* Prevent text highlighting on rapid taps */
-            touch-action: manipulation; /* Prevent double-tap zoom */
+            touch-action: manipulation; /* Prevent double-tap zoom across entire app */
+        }
+
+        html, body {
+            touch-action: manipulation;
+            height: 100%;
+            overflow: hidden; /* Prevent elastic bounce and accidental zoom/scroll issues */
         }
 
         body {
@@ -34,6 +40,7 @@
             flex-direction: column;
             align-items: center;
             min-height: 100vh;
+            overflow-y: auto; /* Allow vertical scrolling if keypad overflows */
         }
 
         .container {
@@ -120,6 +127,7 @@
             overflow-x: auto;
             padding: 4px 0 8px 0;
             scrollbar-width: none; /* Hide for Firefox */
+            -webkit-overflow-scrolling: touch;
         }
         .history-log::-webkit-scrollbar {
             display: none; /* Hide for Chrome/Safari */
@@ -131,6 +139,12 @@
             font-size: 16px;
             font-weight: 500;
             flex-shrink: 0;
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            touch-action: manipulation;
+        }
+        .history-item:active {
+            background-color: #D1D1D6;
         }
     </style>
 </head>
@@ -154,7 +168,7 @@
     </div>
 
     <div class="card" style="padding: 12px;">
-        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Recent Rolls</p>
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Recent Rolls (Tap to Edit)</p>
         <div id="history-log" class="history-log">
             <!-- Rolls will appear here -->
         </div>
@@ -260,6 +274,27 @@
         refreshUI();
     }
 
+    function editRoll(index) {
+        const oldValue = rollHistory[index];
+        const input = prompt(`Change roll from ${oldValue} to:`, oldValue);
+        if (input === null) return;
+        
+        const newValue = parseInt(input);
+        if (isNaN(newValue) || newValue < 2 || newValue > 12) {
+            alert("Please enter a valid roll between 2 and 12.");
+            return;
+        }
+        
+        rollHistory[index] = newValue;
+        
+        // Recalculate counts
+        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+        rollHistory.forEach(num => rollCounts[num]++);
+        
+        saveState();
+        refreshUI();
+    }
+
     function resetGame() {
         if (!confirm("Are you sure you want to reset the game?")) return;
         
@@ -281,9 +316,9 @@
 
     function updateHistoryLog() {
         const logEl = document.getElementById('history-log');
-        logEl.innerHTML = rollHistory.slice().reverse().map(num => 
-            `<div class="history-item">${num}</div>`
-        ).join('');
+        logEl.innerHTML = rollHistory.map((num, idx) => 
+            `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`
+        ).reverse().join('');
     }
 
     // Update the visual graph
