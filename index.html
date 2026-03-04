@@ -164,17 +164,41 @@
         .archive-list {
             display: flex;
             flex-direction: column;
-            gap: 12px;
+            gap: 0; /* Changed to 0 for swipe container */
+        }
+        .archive-item-wrapper {
+            position: relative;
+            overflow: hidden;
+            border-bottom: 1px solid var(--border);
+            touch-action: pan-y; /* Allow vertical scroll while handling horizontal swipe */
+        }
+        .archive-item-wrapper:last-child {
+            border-bottom: none;
+        }
+        .archive-delete-btn {
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 80px;
+            background-color: var(--danger);
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            z-index: 1;
         }
         .archive-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 0;
-            border-bottom: 1px solid var(--border);
-        }
-        .archive-item:last-child {
-            border-bottom: none;
+            padding: 12px 16px;
+            background-color: var(--card-bg);
+            position: relative;
+            z-index: 2;
+            transition: transform 0.3s cubic-bezier(0.2, 0, 0, 1);
         }
         .archive-meta {
             font-size: 13px;
@@ -229,8 +253,8 @@
         <button onclick="resetGame()" style="grid-column: span 3; color: var(--text-muted); font-size: 14px; margin-top: 8px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
     </div>
 
-    <div id="archive-card" class="card" style="display: none;">
-        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Game Archive (Last 5)</p>
+    <div id="archive-card" class="card" style="padding: 0; overflow: hidden; display: none;">
+        <p style="color: var(--text-muted); font-size: 13px; padding: 16px 16px 8px 16px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Game Archive (Last 5)</p>
         <div id="archive-list" class="archive-list">
             <!-- Past games will appear here -->
         </div>
@@ -363,6 +387,13 @@
         refreshUI();
     }
 
+    function deleteArchiveItem(index) {
+        if (!confirm("Delete this game from archive?")) return;
+        gameArchive.splice(index, 1);
+        saveState();
+        refreshUI();
+    }
+
     function resetGame() {
         if (totalRolls > 0) {
             if (confirm("Save current game to archive before resetting?")) {
@@ -412,17 +443,53 @@
         }
         
         archiveCard.style.display = 'block';
-        archiveList.innerHTML = gameArchive.map(game => `
-            <div class="archive-item">
-                <div class="archive-meta">
-                    <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
-                    <div>${game.rolls} rolls</div>
-                </div>
-                <div class="archive-stat" style="color: ${game.pValue < 0.05 ? 'var(--danger)' : 'var(--success)'}">
-                    p = ${game.pValue}
+        archiveList.innerHTML = gameArchive.map((game, index) => `
+            <div class="archive-item-wrapper">
+                <div class="archive-delete-btn" onclick="deleteArchiveItem(${index})">Delete</div>
+                <div class="archive-item" id="archive-item-${index}">
+                    <div class="archive-meta">
+                        <div style="font-weight: 600; color: var(--text-main);">${game.timestamp}</div>
+                        <div>${game.rolls} rolls</div>
+                    </div>
+                    <div class="archive-stat" style="color: ${game.pValue < 0.05 ? 'var(--danger)' : 'var(--success)'}">
+                        p = ${game.pValue}
+                    </div>
                 </div>
             </div>
         `).join('');
+
+        // Re-attach swipe listeners
+        gameArchive.forEach((_, index) => {
+            const el = document.getElementById(`archive-item-${index}`);
+            let startX = 0;
+            let currentX = 0;
+            let isSwiping = false;
+
+            el.addEventListener('touchstart', (e) => {
+                startX = e.touches[0].clientX;
+                el.style.transition = 'none';
+                isSwiping = true;
+            }, { passive: true });
+
+            el.addEventListener('touchmove', (e) => {
+                if (!isSwiping) return;
+                currentX = e.touches[0].clientX - startX;
+                if (currentX < 0) { // Only left swipe
+                    const translateX = Math.max(currentX, -80);
+                    el.style.transform = `translateX(${translateX}px)`;
+                }
+            }, { passive: true });
+
+            el.addEventListener('touchend', () => {
+                isSwiping = false;
+                el.style.transition = 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)';
+                if (currentX < -40) {
+                    el.style.transform = 'translateX(-80px)';
+                } else {
+                    el.style.transform = 'translateX(0)';
+                }
+            });
+        });
     }
 
     function updateChart() {
