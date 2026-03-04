@@ -21,6 +21,7 @@
             --success: #34C759;
             --border: #C6C6C8;
             --item-bg: #E5E5EA;
+            --ghost: rgba(142, 142, 147, 0.15);
         }
 
         @media (prefers-color-scheme: dark) {
@@ -34,6 +35,7 @@
                 --success: #32D74B;
                 --border: #38383A;
                 --item-bg: #2C2C2E;
+                --ghost: rgba(142, 142, 147, 0.2);
             }
         }
 
@@ -262,7 +264,10 @@
         <button onclick="addRoll(11)">11</button>
         <button onclick="addRoll(12)">12</button>
         <button onclick="undoRoll()" style="color: var(--danger); font-size: 18px;">Undo</button>
-        <button onclick="resetGame()" style="grid-column: span 3; color: var(--text-muted); font-size: 14px; margin-top: 8px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
+        <div style="grid-column: span 3; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 8px;">
+            <button onclick="shareGame()" style="color: var(--accent); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Share Link</button>
+            <button onclick="resetGame()" style="color: var(--text-muted); font-size: 14px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
+        </div>
     </div>
 
     <div id="archive-card" class="card" style="padding: 0; overflow: hidden; display: none;">
@@ -284,12 +289,17 @@
     let rollHistory = [];
     let gameArchive = [];
 
+    function haptic() {
+        if (navigator.vibrate) navigator.vibrate(10);
+    }
+
     function getThemeColors() {
         const isDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
         return {
             accent: isDark ? '#0A84FF' : '#007AFF',
             text: '#8E8E93',
-            grid: isDark ? '#38383A' : '#E5E5EA'
+            grid: isDark ? '#38383A' : '#E5E5EA',
+            ghost: isDark ? 'rgba(142, 142, 147, 0.2)' : 'rgba(142, 142, 147, 0.15)'
         };
     }
 
@@ -304,6 +314,14 @@
                     data: Object.values(rollCounts),
                     backgroundColor: getThemeColors().accent,
                     borderRadius: 4,
+                    zIndex: 2
+                },
+                {
+                    label: 'Expected',
+                    data: Object.values(probabilities).map(p => p * 0),
+                    backgroundColor: getThemeColors().ghost,
+                    borderRadius: 4,
+                    zIndex: 1
                 }
             ]
         },
@@ -314,10 +332,12 @@
             scales: {
                 y: { 
                     beginAtZero: true, 
+                    stacked: false,
                     ticks: { precision: 0, color: getThemeColors().text },
                     grid: { color: getThemeColors().grid }
                 },
                 x: { 
+                    stacked: true,
                     grid: { display: false },
                     ticks: { color: getThemeColors().text }
                 }
@@ -332,6 +352,7 @@
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
         const colors = getThemeColors();
         chart.data.datasets[0].backgroundColor = colors.accent;
+        chart.data.datasets[1].backgroundColor = colors.ghost;
         chart.options.scales.y.ticks.color = colors.text;
         chart.options.scales.y.grid.color = colors.grid;
         chart.options.scales.x.ticks.color = colors.text;
@@ -348,6 +369,28 @@
     }
 
     function loadState() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const sharedData = urlParams.get('game');
+        
+        if (sharedData) {
+            try {
+                const history = JSON.parse(atob(sharedData));
+                if (Array.isArray(history) && confirm("Load shared game data? This will clear your current game.")) {
+                    rollHistory = history;
+                    rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+                    rollHistory.forEach(num => rollCounts[num]++);
+                    totalRolls = rollHistory.length;
+                    
+                    // Clear URL params without refreshing
+                    window.history.replaceState({}, document.title, window.location.pathname);
+                    refreshUI();
+                    return;
+                }
+            } catch (e) {
+                console.error("Failed to load shared game", e);
+            }
+        }
+
         const saved = localStorage.getItem('chi_game_state_v2');
         if (saved) {
             const state = JSON.parse(saved);
@@ -359,7 +402,31 @@
         }
     }
 
+    function shareGame() {
+        haptic();
+        if (rollHistory.length === 0) {
+            alert("Roll the dice first to share a game!");
+            return;
+        }
+        
+        const data = btoa(JSON.stringify(rollHistory));
+        const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
+        
+        if (navigator.share) {
+            navigator.share({
+                title: 'Chi Dice Stats',
+                text: `Catan Dice Stats (Total Rolls: ${totalRolls})`,
+                url: url
+            }).catch(console.error);
+        } else {
+            navigator.clipboard.writeText(url).then(() => {
+                alert("Game link copied to clipboard!");
+            });
+        }
+    }
+
     function addRoll(number) {
+        haptic();
         rollCounts[number]++;
         totalRolls++;
         rollHistory.push(number);
@@ -368,6 +435,7 @@
     }
 
     function undoRoll() {
+        haptic();
         if (rollHistory.length === 0) return;
         const lastRoll = rollHistory.pop();
         rollCounts[lastRoll]--;
@@ -393,6 +461,7 @@
     }
 
     function deleteArchiveItem(index) {
+        haptic();
         if (!confirm("Delete this game from archive?")) return;
         gameArchive.splice(index, 1);
         saveState();
@@ -400,6 +469,7 @@
     }
 
     function resetGame() {
+        haptic();
         if (totalRolls > 0) {
             if (confirm("Save current game to archive before resetting?")) {
                 const chiSquare = calculateChiSquareValue();
@@ -505,6 +575,7 @@
 
     function updateChart() {
         chart.data.datasets[0].data = Object.values(rollCounts);
+        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
         chart.update();
     }
 
