@@ -8,6 +8,8 @@ Designed with an **iOS-native aesthetic**, it provides a smooth, haptic-style ex
 - **Real-time Distribution:** A dynamic bar chart showing the frequency of every roll (2-12).
 - **Statistical Engine:** Calculates the $\chi^2$ statistic and the exact **p-value** (likelihood) for 10 degrees of freedom.
 - **Roll History & Editing:** Scroll through your recent rolls. Tap any roll to edit its value if you made a mistake.
+- **Game Archive:** Save completed games to a local archive (stores the last 5 games) before resetting.
+- **System Theme Support:** Perfectly mirrors your device's theme (Light/Dark mode) including browser UI integration.
 - **Local Persistence:** Data is automatically saved to your browser's `localStorage`. Refreshing or closing the tab won't lose your game.
 - **Privacy First:** No backend, no cookies, no tracking. Your dice data never leaves your device.
 - **Mobile Optimized:** Zero tap delay and disabled double-tap zoom for high-speed tracking during intense games.
