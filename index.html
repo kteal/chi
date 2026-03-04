@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Chi</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* iOS Native Styling */
+        :root {
+            --bg-color: #F2F2F7;
+            --card-bg: #FFFFFF;
+            --text-main: #1C1C1E;
+            --text-muted: #8E8E93;
+            --accent: #007AFF;
+            --danger: #FF3B30;
+            --success: #34C759;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            user-select: none; /* Prevent text highlighting on rapid taps */
+        }
+
+        body {
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            padding: 20px 16px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        /* Header */
+        .header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+        .header h1 {
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+        }
+        .header p {
+            color: var(--text-muted);
+            font-size: 17px;
+        }
+
+        /* Cards */
+        .card {
+            background-color: var(--card-bg);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        }
+
+        /* Chart Area */
+        .chart-container {
+            position: relative;
+            height: 200px;
+            width: 100%;
+        }
+
+        /* Button Grid */
+        .keypad {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+        }
+        
+        button {
+            background-color: var(--card-bg);
+            border: none;
+            border-radius: 14px;
+            padding: 18px 0;
+            font-size: 24px;
+            font-weight: 600;
+            color: var(--accent);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            transition: transform 0.1s ease, background-color 0.1s ease;
+            cursor: pointer;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        button:active {
+            transform: scale(0.95);
+            background-color: #E5E5EA;
+        }
+
+        /* Make 7 stand out slightly */
+        button[data-val="7"] {
+            grid-column: span 3;
+            background-color: var(--accent);
+            color: white;
+            font-size: 28px;
+        }
+
+        /* Status Output */
+        .status-area {
+            text-align: center;
+            font-size: 15px;
+            line-height: 1.4;
+        }
+        .status-value {
+            font-weight: 600;
+            font-size: 17px;
+            margin-top: 4px;
+        }
+
+        /* History Log Styling */
+        .history-log {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            padding: 4px 0 8px 0;
+            scrollbar-width: none; /* Hide for Firefox */
+        }
+        .history-log::-webkit-scrollbar {
+            display: none; /* Hide for Chrome/Safari */
+        }
+        .history-item {
+            background-color: #E5E5EA;
+            border-radius: 10px;
+            padding: 6px 14px;
+            font-size: 16px;
+            font-weight: 500;
+            flex-shrink: 0;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>Chi</h1>
+        <p>Total Rolls: <span id="total-rolls">0</span></p>
+    </div>
+
+    <div class="card">
+        <div class="chart-container">
+            <canvas id="distributionChart"></canvas>
+        </div>
+    </div>
+
+    <div class="card status-area">
+        <p style="color: var(--text-muted);">Chi-Square Statistic (α = 0.05)</p>
+        <div id="status-text" class="status-value" style="color: var(--text-muted);">Awaiting more data...</div>
+    </div>
+
+    <div class="card" style="padding: 12px;">
+        <p style="color: var(--text-muted); font-size: 13px; margin-bottom: 8px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Recent Rolls</p>
+        <div id="history-log" class="history-log">
+            <!-- Rolls will appear here -->
+        </div>
+    </div>
+
+    <div class="keypad">
+        <button onclick="addRoll(2)">2</button>
+        <button onclick="addRoll(3)">3</button>
+        <button onclick="addRoll(4)">4</button>
+        <button onclick="addRoll(5)">5</button>
+        <button onclick="addRoll(6)">6</button>
+        <button onclick="addRoll(8)">8</button>
+        <button data-val="7" onclick="addRoll(7)">7</button>
+        <button onclick="addRoll(9)">9</button>
+        <button onclick="addRoll(10)">10</button>
+        <button onclick="addRoll(11)">11</button>
+        <button onclick="addRoll(12)">12</button>
+        <button onclick="undoRoll()" style="color: var(--danger); font-size: 18px;">Undo</button>
+        <button onclick="resetGame()" style="grid-column: span 3; color: var(--text-muted); font-size: 14px; margin-top: 8px; padding: 10px 0; background: none; box-shadow: none;">Reset Game</button>
+    </div>
+</div>
+
+<script>
+    // The theoretical probabilities of rolling 2d6
+    const probabilities = {
+        2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36,
+        8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36
+    };
+
+    // Application State
+    let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+    let totalRolls = 0;
+    let rollHistory = [];
+
+    // Chart.js Initialization
+    const ctx = document.getElementById('distributionChart').getContext('2d');
+    const chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12'],
+            datasets: [
+                {
+                    label: 'Actual',
+                    data: Object.values(rollCounts),
+                    backgroundColor: '#007AFF',
+                    borderRadius: 4,
+                },
+                {
+                    label: 'Expected',
+                    data: Object.values(probabilities).map(p => p * 0),
+                    type: 'line',
+                    borderColor: '#FF3B30',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false,
+                    tension: 0.3
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: { duration: 300 },
+            scales: {
+                y: { beginAtZero: true, ticks: { precision: 0 } },
+                x: { grid: { display: false } }
+            },
+            plugins: {
+                legend: { display: false },
+                tooltip: { enabled: false }
+            }
+        }
+    });
+
+    // Persistence
+    function saveState() {
+        localStorage.setItem('chi_game_state', JSON.stringify({
+            rollCounts,
+            totalRolls,
+            rollHistory
+        }));
+    }
+
+    function loadState() {
+        const saved = localStorage.getItem('chi_game_state');
+        if (saved) {
+            const state = JSON.parse(saved);
+            rollCounts = state.rollCounts;
+            totalRolls = state.totalRolls;
+            rollHistory = state.rollHistory || [];
+            refreshUI();
+        }
+    }
+
+    // Handle button taps
+    function addRoll(number) {
+        rollCounts[number]++;
+        totalRolls++;
+        rollHistory.push(number);
+        
+        saveState();
+        refreshUI();
+    }
+
+    function undoRoll() {
+        if (rollHistory.length === 0) return;
+        
+        const lastRoll = rollHistory.pop();
+        rollCounts[lastRoll]--;
+        totalRolls--;
+        
+        saveState();
+        refreshUI();
+    }
+
+    function resetGame() {
+        if (!confirm("Are you sure you want to reset the game?")) return;
+        
+        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+        totalRolls = 0;
+        rollHistory = [];
+        
+        saveState();
+        refreshUI();
+    }
+
+    // Update everything
+    function refreshUI() {
+        document.getElementById('total-rolls').innerText = totalRolls;
+        updateChart();
+        calculateChiSquare();
+        updateHistoryLog();
+    }
+
+    function updateHistoryLog() {
+        const logEl = document.getElementById('history-log');
+        logEl.innerHTML = rollHistory.slice().reverse().map(num => 
+            `<div class="history-item">${num}</div>`
+        ).join('');
+    }
+
+    // Update the visual graph
+    function updateChart() {
+        chart.data.datasets[0].data = Object.values(rollCounts);
+        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
+        chart.update();
+    }
+
+    // Statistical Engine
+    function calculateChiSquare() {
+        const statusEl = document.getElementById('status-text');
+        
+        if (totalRolls < 15) {
+            statusEl.innerText = `Need ${15 - totalRolls} more rolls to evaluate...`;
+            statusEl.style.color = 'var(--text-muted)';
+            return;
+        }
+
+        let chiSquare = 0;
+        for (let i = 2; i <= 12; i++) {
+            let observed = rollCounts[i];
+            let expected = totalRolls * probabilities[i];
+            if (expected > 0) {
+                chiSquare += Math.pow((observed - expected), 2) / expected;
+            }
+        }
+
+        const criticalValue = 18.31; 
+
+        if (chiSquare > criticalValue) {
+            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Suspicious! (p < 0.05)`;
+            statusEl.style.color = 'var(--danger)';
+        } else {
+            statusEl.innerText = `χ² = ${chiSquare.toFixed(2)} — Normal (Fair Dice)`;
+            statusEl.style.color = 'var(--success)';
+        }
+    }
+
+    // Initialize
+    loadState();
+</script>
+
+</body>
+</html>
