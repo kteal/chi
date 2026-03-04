@@ -178,6 +178,7 @@
             gap: 8px;
             padding-bottom: 12px;
             border-bottom: 1px solid var(--border);
+            transition: all 0.4s ease; /* For smooth sorting feel */
         }
         .player-row:last-child {
             border-bottom: none;
@@ -207,6 +208,7 @@
             font-weight: 700;
             padding: 4px 10px;
             border-radius: 20px;
+            transition: background-color 0.3s ease;
         }
         .number-toggles {
             display: flex;
@@ -221,6 +223,7 @@
             font-weight: 600;
             color: var(--text-muted);
             cursor: pointer;
+            transition: all 0.2s ease;
         }
         .num-pill.active {
             background-color: var(--accent);
@@ -466,8 +469,7 @@
     function confirmAddPlayer() {
         const name = document.getElementById('player-name-input').value;
         if (!name) return;
-        // players record assignments as objects: { num, startRoll }
-        players.push({ name, color: selectedModalColor, assignments: [] });
+        players.push({ id: Date.now(), name, color: selectedModalColor, assignments: [] });
         saveState();
         refreshUI();
         closeModal();
@@ -484,7 +486,6 @@
             try {
                 const data = JSON.parse(atob(sharedData));
                 if (confirm("Load shared game data?")) {
-                    // v4 sharing format
                     rollHistory = data.history || [];
                     players = data.players || [];
                     rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
@@ -504,37 +505,30 @@
             rollHistory = state.rollHistory || [];
             gameArchive = state.gameArchive || [];
             players = state.players || [];
-            
-            // Migration: Convert old player format to v4 assignments
             players.forEach(p => {
+                if (!p.id) p.id = Math.random();
                 if (p.numbers) {
                     p.assignments = p.numbers.map(n => ({ num: n, startRoll: 0 }));
                     delete p.numbers;
                 }
             });
-            
             refreshUI();
         }
     }
 
-    function togglePlayerNumber(playerIndex, num) {
+    function togglePlayerNumber(playerId, num) {
         haptic();
-        const p = players[playerIndex];
+        const p = players.find(player => player.id === playerId);
         const existingIdx = p.assignments.findIndex(a => a.num === num);
-        
-        if (existingIdx > -1) {
-            p.assignments.splice(existingIdx, 1);
-        } else {
-            p.assignments.push({ num: num, startRoll: totalRolls });
-        }
-        
+        if (existingIdx > -1) p.assignments.splice(existingIdx, 1);
+        else p.assignments.push({ num: num, startRoll: totalRolls });
         saveState();
         refreshUI();
     }
 
-    function deletePlayer(index) {
+    function deletePlayer(playerId) {
         if (confirm("Delete player?")) {
-            players.splice(index, 1);
+            players = players.filter(p => p.id !== playerId);
             saveState();
             refreshUI();
         }
@@ -564,12 +558,7 @@
         const lastRoll = rollHistory.pop();
         rollCounts[lastRoll]--;
         totalRolls--;
-        // Safeguard assignments against undoing past the start turn
-        players.forEach(p => {
-            p.assignments.forEach(a => {
-                if (a.startRoll > totalRolls) a.startRoll = totalRolls;
-            });
-        });
+        players.forEach(p => p.assignments.forEach(a => { if (a.startRoll > totalRolls) a.startRoll = totalRolls; }));
         saveState();
         refreshUI();
     }
@@ -609,8 +598,6 @@
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         totalRolls = 0;
         rollHistory = [];
-        // Optional: clear player assignments on reset? Usually players stay the same across games.
-        // For now, keep them but reset startRoll to 0.
         players.forEach(p => p.assignments.forEach(a => a.startRoll = 0));
         saveState();
         refreshUI();
@@ -627,45 +614,46 @@
 
     function updateLuckTracker() {
         const list = document.getElementById('player-list');
-        list.innerHTML = players.map((p, pIdx) => {
+        
+        // Calculate current luck for all players
+        const playerLuckData = players.map(p => {
             let actualHits = 0;
             let expectedHits = 0;
-            
             p.assignments.forEach(a => {
-                const rollsSinceAssignment = rollHistory.slice(a.startRoll);
-                actualHits += rollsSinceAssignment.filter(num => num === a.num).length;
+                actualHits += rollHistory.slice(a.startRoll).filter(num => num === a.num).length;
                 expectedHits += (totalRolls - a.startRoll) * probabilities[a.num];
             });
-            
             let luckPct = 100;
-            if (expectedHits > 0.1) {
-                luckPct = Math.round((actualHits / expectedHits) * 100);
-            }
-            
-            let badgeColor = 'var(--text-muted)';
-            // Only color badge if enough relevant data exists
-            if (expectedHits > 1.5) {
-                if (luckPct > 115) badgeColor = 'var(--success)';
-                else if (luckPct < 85) badgeColor = 'var(--danger)';
-            }
+            if (expectedHits > 0.1) luckPct = Math.round((actualHits / expectedHits) * 100);
+            return { ...p, luckPct, expectedHits };
+        });
 
+        // Sort by luckPct descending
+        playerLuckData.sort((a, b) => b.luckPct - a.luckPct);
+
+        list.innerHTML = playerLuckData.map((p) => {
+            let badgeColor = 'var(--text-muted)';
+            if (p.expectedHits > 1.5) {
+                if (p.luckPct > 115) badgeColor = 'var(--success)';
+                else if (p.luckPct < 85) badgeColor = 'var(--danger)';
+            }
             const assignedNums = p.assignments.map(a => a.num);
 
             return `
                 <div class="player-row">
-                    <div class="player-header" onclick="deletePlayer(${pIdx})">
-                        <div class="player-info">
+                    <div class="player-header">
+                        <div class="player-info" onclick="deletePlayer(${p.id})">
                             <div class="player-color" style="background-color: ${p.color}"></div>
                             <div class="player-name">${p.name}</div>
                         </div>
                         <div class="luck-badge" style="background-color: ${badgeColor}; color: white;">
-                            ${luckPct}%
+                            ${p.luckPct}%
                         </div>
                     </div>
                     <div class="number-toggles">
                         ${[2,3,4,5,6,7,8,9,10,11,12].map(n => `
                             <div class="num-pill ${assignedNums.includes(n) ? 'active' : ''}" 
-                                 onclick="togglePlayerNumber(${pIdx}, ${n})">${n}</div>
+                                 onclick="togglePlayerNumber(${p.id}, ${n})">${n}</div>
                         `).join('')}
                     </div>
                 </div>
@@ -675,9 +663,7 @@
 
     function updateHistoryLog() {
         const logEl = document.getElementById('history-log');
-        logEl.innerHTML = rollHistory.map((num, idx) => 
-            `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`
-        ).reverse().join('');
+        logEl.innerHTML = rollHistory.map((num, idx) => `<div class="history-item" onclick="editRoll(${idx})">${num}</div>`).reverse().join('');
     }
 
     function updateArchiveUI() {
