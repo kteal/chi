@@ -23,6 +23,7 @@
             padding: 0;
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
             user-select: none; /* Prevent text highlighting on rapid taps */
+            touch-action: manipulation; /* Prevent double-tap zoom */
         }
 
         body {
@@ -92,6 +93,7 @@
             transition: transform 0.1s ease, background-color 0.1s ease;
             cursor: pointer;
             -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
         }
 
         button:active {
@@ -199,16 +201,6 @@
                     data: Object.values(rollCounts),
                     backgroundColor: '#007AFF',
                     borderRadius: 4,
-                },
-                {
-                    label: 'Expected',
-                    data: Object.values(probabilities).map(p => p * 0),
-                    type: 'line',
-                    borderColor: '#FF3B30',
-                    borderWidth: 2,
-                    pointRadius: 0,
-                    fill: false,
-                    tension: 0.3
                 }
             ]
         },
@@ -297,7 +289,6 @@
     // Update the visual graph
     function updateChart() {
         chart.data.datasets[0].data = Object.values(rollCounts);
-        chart.data.datasets[1].data = Object.values(probabilities).map(p => p * totalRolls);
         chart.update();
     }
 
