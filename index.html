@@ -406,8 +406,8 @@
 
 <script>
     const probabilities = { 2: 1/36, 3: 2/36, 4: 3/36, 5: 4/36, 6: 5/36, 7: 6/36, 8: 5/36, 9: 4/36, 10: 3/36, 11: 2/36, 12: 1/36 };
-    let rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
-    let totalRolls = 0, rollHistory = [], gameArchive = [], players = [], selectedModalColor = '#FF3B30';
+    var rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+    var totalRolls = 0, rollHistory = [], gameArchive = [], players = [], selectedModalColor = '#FF3B30';
 
     function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
     function getThemeColors() {
@@ -435,7 +435,6 @@
         }
     });
 
-    // Details Chart Initialization
     const detailCtx = document.getElementById('detailsChart').getContext('2d');
     const detailsChart = new Chart(detailCtx, {
         type: 'bar',
@@ -485,7 +484,20 @@
         const saved = localStorage.getItem('chi_game_state_v5') || localStorage.getItem('chi_game_state_v4');
         if (saved) {
             const state = JSON.parse(saved);
-            Object.assign(window, { rollCounts: state.rollCounts, totalRolls: state.totalRolls, rollHistory: state.rollHistory, gameArchive: state.gameArchive, players: state.players });
+            rollCounts = state.rollCounts || rollCounts;
+            totalRolls = state.totalRolls || 0;
+            rollHistory = state.rollHistory || [];
+            gameArchive = state.gameArchive || [];
+            players = state.players || [];
+            
+            // Migration
+            players.forEach(p => {
+                if (p.numbers && !p.assignments) {
+                    p.assignments = p.numbers.map(n => ({ num: n, startRoll: 0 }));
+                    delete p.numbers;
+                }
+                if (!p.id) p.id = 'p' + Math.random();
+            });
             refreshUI();
         }
     }
@@ -506,6 +518,20 @@
         players.forEach(p => p.assignments.forEach(a => { if (a.startRoll > totalRolls) a.startRoll = totalRolls; }));
         saveState(); refreshUI();
     }
+
+    function editRoll(index) {
+        const oldValue = rollHistory[index];
+        const input = prompt(`Change roll:`, oldValue);
+        if (input === null) return;
+        const newValue = parseInt(input);
+        if (isNaN(newValue) || newValue < 2 || newValue > 12) return;
+        rollHistory[index] = newValue;
+        rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
+        rollHistory.forEach(num => rollCounts[num]++);
+        saveState(); refreshUI();
+    }
+
+    function deleteArchiveItem(index) { haptic(); if (confirm("Delete archived game?")) { gameArchive.splice(index, 1); saveState(); refreshUI(); } }
 
     function resetGame() {
         haptic();
@@ -531,6 +557,15 @@
         rollCounts = {2:0, 3:0, 4:0, 5:0, 6:0, 7:0, 8:0, 9:0, 10:0, 11:0, 12:0};
         totalRolls = 0; rollHistory = []; players = [];
         saveState(); refreshUI();
+    }
+
+    function shareGame() {
+        haptic();
+        if (rollHistory.length === 0) return;
+        const data = btoa(JSON.stringify({ history: rollHistory, players: players }));
+        const url = `${window.location.origin}${window.location.pathname}?game=${data}`;
+        if (navigator.share) { navigator.share({ title: 'Chi Stats', url: url }).catch(console.error); }
+        else { navigator.clipboard.writeText(url).then(() => alert("Link copied!")); }
     }
 
     function refreshUI() {
@@ -642,19 +677,8 @@
     }
 
     function closeDetailsModal() { document.getElementById('details-modal').style.display = 'none'; }
-    function getPValue(chiSquare) {
-        const k = 5, x = chiSquare / 2; let sum = 0, term = 1;
-        for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); }
-        return Math.exp(-x) * sum;
-    }
-    function calculateChiSquareValue() {
-        let chiSquare = 0;
-        for (let i = 2; i <= 12; i++) {
-            let observed = rollCounts[i], expected = totalRolls * probabilities[i];
-            if (expected > 0) chiSquare += Math.pow((observed - expected), 2) / expected;
-        }
-        return chiSquare;
-    }
+    function getPValue(chiSquare) { const k = 5, x = chiSquare / 2; let sum = 0, term = 1; for (let j = 0; j < k; j++) { sum += term; term *= x / (j + 1); } return Math.exp(-x) * sum; }
+    function calculateChiSquareValue() { let chiSquare = 0; for (let i = 2; i <= 12; i++) { let observed = rollCounts[i], expected = totalRolls * probabilities[i]; if (expected > 0) chiSquare += Math.pow((observed - expected), 2) / expected; } return chiSquare; }
     function calculateChiSquare() {
         const sEl = document.getElementById('status-text'), pEl = document.getElementById('p-value-text');
         if (totalRolls < 15) { sEl.innerText = `Need ${15 - totalRolls} more rolls...`; sEl.style.color = 'var(--text-muted)'; pEl.innerText = ""; return; }
