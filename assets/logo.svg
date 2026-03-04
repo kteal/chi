@@ -1,11 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <!-- iOS Style Gradient Background -->
-    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#2D9CDB" />
-      <stop offset="100%" stop-color="#0052CC" />
-    </linearGradient>
-    
     <!-- Desert Gold Gradient for the Hex -->
     <linearGradient id="hexGrad" x1="0%" y1="0%" x2="0%" y2="100%">
       <stop offset="0%" stop-color="#F2C94C" />
@@ -17,31 +11,29 @@
     </filter>
   </defs>
 
-  <!-- iOS Squircle Background -->
-  <rect width="512" height="512" rx="115" ry="115" fill="url(#bg)" />
-
+  <!-- Transparent background, the hex is the shape -->
   <g filter="url(#shadow)">
-    <!-- Catan Hexagon (Centered) -->
-    <path d="M256 100 L390 177 L390 334 L256 411 L122 334 L122 177 Z" fill="url(#hexGrad)" />
+    <!-- Catan Hexagon (Centered and Enlarged to fit) -->
+    <path d="M256 30 L460 148 L460 364 L256 482 L52 364 L52 148 Z" fill="url(#hexGrad)" />
     
     <!-- Stylized Dice on the Hex -->
     <!-- First Die (Left, angled) -->
-    <g transform="translate(200, 300) rotate(-15)">
-      <rect x="-60" y="-60" width="120" height="120" rx="20" ry="20" fill="#FFFFFF" />
+    <g transform="translate(190, 310) rotate(-15)">
+      <rect x="-70" y="-70" width="140" height="140" rx="25" ry="25" fill="#FFFFFF" />
       <!-- Dots for a 4 -->
-      <circle cx="-25" cy="-25" r="12" fill="#0052CC" />
-      <circle cx="25" cy="-25" r="12" fill="#0052CC" />
-      <circle cx="-25" cy="25" r="12" fill="#0052CC" />
-      <circle cx="25" cy="25" r="12" fill="#0052CC" />
+      <circle cx="-30" cy="-30" r="14" fill="#0052CC" />
+      <circle cx="30" cy="-30" r="14" fill="#0052CC" />
+      <circle cx="-30" cy="30" r="14" fill="#0052CC" />
+      <circle cx="30" cy="30" r="14" fill="#0052CC" />
     </g>
 
     <!-- Second Die (Right, slightly higher, angled) -->
-    <g transform="translate(320, 240) rotate(10)">
-      <rect x="-60" y="-60" width="120" height="120" rx="20" ry="20" fill="#FFFFFF" />
+    <g transform="translate(330, 220) rotate(10)">
+      <rect x="-70" y="-70" width="140" height="140" rx="25" ry="25" fill="#FFFFFF" />
       <!-- Dots for a 3 -->
-      <circle cx="-25" cy="-25" r="12" fill="#FF3B30" />
-      <circle cx="0" cy="0" r="12" fill="#FF3B30" />
-      <circle cx="25" cy="25" r="12" fill="#FF3B30" />
+      <circle cx="-30" cy="-30" r="14" fill="#FF3B30" />
+      <circle cx="0" cy="0" r="14" fill="#FF3B30" />
+      <circle cx="30" cy="30" r="14" fill="#FF3B30" />
     </g>
   </g>
 </svg>
